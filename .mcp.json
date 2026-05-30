@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "daycraft": {
+      "command": "npx",
+      "args": ["tsx", "index.ts"],
+      "cwd": "D:/projects/12weekyear/mcp-server"
+    }
+  }
+}
