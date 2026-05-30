@@ -1,4 +1,3 @@
-import { Link } from 'react-router';
 import { ArrowRight, Calendar, Target, BarChart3 } from 'lucide-react';
 
 export function Landing() {
@@ -10,14 +9,6 @@ export function Landing() {
           <h1 className="text-2xl font-bold tracking-tight">
             <span className="text-primary">Day</span>Craft
           </h1>
-          <div className="flex gap-6">
-            <Link
-              to="/12weekyear"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              12 Week Year
-            </Link>
-          </div>
         </nav>
       </header>
 
@@ -40,13 +31,13 @@ export function Landing() {
             A personal operating system for goal setting, habit tracking, and life management.
             Start with the 12 Week Year methodology to turn your annual goals into weekly actions.
           </p>
-          <Link
-            to="/12weekyear"
+          <a
+            href="#/"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-lg font-medium"
           >
             Get Started
             <ArrowRight className="h-5 w-5" />
-          </Link>
+          </a>
         </section>
 
         {/* Features */}

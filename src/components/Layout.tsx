@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router';
-import { LayoutDashboard, Target, Calendar as CalendarIcon, ClipboardCheck, BarChart3, Home } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar as CalendarIcon, ClipboardCheck, BarChart3, LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Layout() {
   const location = useLocation();
@@ -8,28 +9,28 @@ export function Layout() {
     return location.pathname === path;
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
-              <Link
-                to="/"
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <Home className="w-5 h-5" />
-                <span className="font-medium">DayCraft</span>
-              </Link>
+              <h1 className="font-bold text-xl text-gray-900">
+                <span className="text-blue-600">Day</span>Craft
+              </h1>
               <span className="text-gray-300">/</span>
-              <h1 className="font-bold text-xl text-gray-900">12 Week Year</h1>
+              <span className="text-gray-500 text-sm">12 Week Year</span>
             </div>
 
-            <div className="flex space-x-1">
+            <div className="flex items-center space-x-1">
               <Link
-                to="/12weekyear"
+                to="/"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/12weekyear')
+                  isActive('/')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -39,9 +40,9 @@ export function Layout() {
               </Link>
 
               <Link
-                to="/12weekyear/goals"
+                to="/goals"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/12weekyear/goals')
+                  isActive('/goals')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -51,9 +52,9 @@ export function Layout() {
               </Link>
 
               <Link
-                to="/12weekyear/calendar"
+                to="/calendar"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/12weekyear/calendar')
+                  isActive('/calendar')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -63,9 +64,9 @@ export function Layout() {
               </Link>
 
               <Link
-                to="/12weekyear/scorecard"
+                to="/scorecard"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/12weekyear/scorecard')
+                  isActive('/scorecard')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -75,9 +76,9 @@ export function Layout() {
               </Link>
 
               <Link
-                to="/12weekyear/analytics"
+                to="/analytics"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/12weekyear/analytics')
+                  isActive('/analytics')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -85,6 +86,14 @@ export function Layout() {
                 <BarChart3 className="w-5 h-5" />
                 <span className="font-medium">Analytics</span>
               </Link>
+
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors ml-2"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

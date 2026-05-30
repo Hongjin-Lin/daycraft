@@ -1,5 +1,4 @@
-import { createBrowserRouter } from "react-router";
-import { Landing } from "./components/Landing";
+import { createHashRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { Goals } from "./components/Goals";
@@ -7,13 +6,9 @@ import { Calendar } from "./components/Calendar";
 import { Scorecard } from "./components/Scorecard";
 import { Analytics } from "./components/Analytics";
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
-    element: <Landing />,
-  },
-  {
-    path: "/12weekyear",
     Component: Layout,
     children: [
       { index: true, Component: Dashboard },
