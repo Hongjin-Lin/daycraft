@@ -1,0 +1,21 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "DayCraft" [level=4] [ref=e6]
+    - paragraph [ref=e7]: Create an account to sync your data across devices
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]: Email
+      - textbox "Email" [ref=e12]:
+        - /placeholder: you@example.com
+        - text: user@daycraft.app
+    - generic [ref=e13]:
+      - generic [ref=e14]: Password
+      - textbox "Password" [ref=e15]:
+        - /placeholder: ••••••••
+        - text: daycraft123
+    - button "Sign Up" [ref=e19]:
+      - text: Sign Up
+      - img
+    - paragraph [ref=e17]:
+      - text: Already have an account?
+      - button "Sign In" [ref=e20]

@@ -1,0 +1,42 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - navigation [ref=e5]:
+      - heading "DayCraft" [level=1] [ref=e6]
+      - link "12 Week Year" [ref=e8] [cursor=pointer]:
+        - /url: /12weekyear
+  - main [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]: Work in Progress
+      - heading "Craft Your Days, Shape Your Life" [level=2] [ref=e12]:
+        - text: Craft Your Days,
+        - text: Shape Your Life
+      - paragraph [ref=e13]: A personal operating system for goal setting, habit tracking, and life management. Start with the 12 Week Year methodology to turn your annual goals into weekly actions.
+      - link "Get Started" [ref=e14] [cursor=pointer]:
+        - /url: /12weekyear
+        - text: Get Started
+        - img [ref=e15]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - img [ref=e20]
+        - heading "Goal Setting" [level=3] [ref=e24]
+        - paragraph [ref=e25]: Define clear goals with actionable tactics. Break down big visions into weekly tasks.
+      - generic [ref=e26]:
+        - img [ref=e28]
+        - heading "Daily Tracking" [level=3] [ref=e30]
+        - paragraph [ref=e31]: Track daily todos and habits. Stay accountable with visual progress indicators.
+      - generic [ref=e32]:
+        - img [ref=e34]
+        - heading "Analytics" [level=3] [ref=e36]
+        - paragraph [ref=e37]: Visualize your execution score. Predict outcomes and identify patterns.
+    - generic [ref=e38]:
+      - heading "Coming Soon" [level=3] [ref=e39]
+      - generic [ref=e40]:
+        - generic [ref=e41]: Resume Builder
+        - generic [ref=e42]: Project Portfolio
+        - generic [ref=e43]: Reading List
+        - generic [ref=e44]: Habit Tracker
+  - contentinfo [ref=e45]:
+    - generic [ref=e46]:
+      - paragraph [ref=e47]: © 2026 DayCraft. Built with passion.
+      - link "GitHub" [ref=e49] [cursor=pointer]:
+        - /url: https://github.com

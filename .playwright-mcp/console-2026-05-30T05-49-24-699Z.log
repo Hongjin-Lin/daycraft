@@ -1,0 +1,5 @@
+[     101ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=a10aba9a:21608
+[     298ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3001/:0
+[   31918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/token?grant_type=password:0
+[  135099ms] TypeError: Cannot read properties of null (reading 'id')
+    at createPeriod (http://localhost:3001/src/lib/store.ts?t=1780119906771:180:26)

@@ -1,0 +1,12 @@
+[     288ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=a10aba9a:21608
+[     797ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3001/favicon.ico:0
+[     800ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3001/:0
+[   88037ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/signup:0
+[  115388ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/token?grant_type=password:0
+[  128800ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/token?grant_type=password:0
+[  597674ms] [ERROR] Failed to load resource: the server responded with a status of 422 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/token?grant_type=password:0
+[  659171ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/token?grant_type=password:0
+[  712134ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/signup:0
+[  825988ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/signup:0
+[  979585ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/signup:0
+[ 1019295ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/admin/signup:0

@@ -1,0 +1,15 @@
+[     235ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:21608
+[     312ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3001/favicon.ico:0
+[     450ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3001/:0
+[  305126ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://gfcdygyvqitdlqqxnuhw.supabase.co/auth/v1/signup:0
+[  305126ms] [ERROR] TypeError: Failed to fetch
+    at http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=be11a2aa:12800:23
+    at _handleRequest2 (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=be11a2aa:13108:20)
+    at _request (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=be11a2aa:13098:22)
+    at SupabaseAuthClient.signUp (http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=be11a2aa:15816:21)
+    at handleSubmit (http://localhost:3001/src/components/AuthPage.tsx:44:55)
+    at HTMLUnknownElement.callCallback2 (http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:3705:24)
+    at invokeGuardedCallback (http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:3739:39)
+    at invokeGuardedCallbackAndCatchFirstError (http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:3742:33)
+    at executeDispatch (http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=8af6f951:7046:11) @ http://localhost:3001/node_modules/.vite/deps/@supabase_supabase-js.js?v=be11a2aa:13109

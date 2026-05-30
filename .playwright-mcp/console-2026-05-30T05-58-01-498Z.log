@@ -1,0 +1,11 @@
+[     132ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=a10aba9a:21608
+[ 4890592ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/tactics?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890595ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/todos?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890595ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/periods?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890596ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/goals?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890600ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/weekly_scores?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890724ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/tactics?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890725ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/periods?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890725ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/weekly_scores?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890726ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/todos?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0
+[ 4890730ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://gfcdygyvqitdlqqxnuhw.supabase.co/rest/v1/goals?select=*&user_id=eq.cfabd772-ff87-4a35-bfbe-cb3fe818f08b:0

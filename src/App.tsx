@@ -14,6 +14,12 @@ function App() {
   const loading = useStore(s => s.loading);
 
   useEffect(() => {
+    // Clear old localStorage data from previous version
+    const oldKey = '12-week-year-storage';
+    if (localStorage.getItem(oldKey)) {
+      localStorage.removeItem(oldKey);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -37,8 +43,8 @@ function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-muted-foreground text-lg">Loading...</div>
       </div>
     );
   }
@@ -49,8 +55,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Syncing data...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-muted-foreground text-lg">Syncing data...</div>
       </div>
     );
   }

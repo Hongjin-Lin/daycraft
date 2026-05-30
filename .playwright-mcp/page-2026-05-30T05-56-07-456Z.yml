@@ -1,0 +1,36 @@
+- generic [ref=e5]:
+  - navigation [ref=e6]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - heading "DayCraft" [level=1] [ref=e10]
+        - generic [ref=e11]: /
+        - generic [ref=e12]: 12 Week Year
+      - generic [ref=e13]:
+        - link "Dashboard" [ref=e14] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e15]
+          - generic [ref=e20]: Dashboard
+        - link "Goals" [ref=e21] [cursor=pointer]:
+          - /url: "#/goals"
+          - img [ref=e22]
+          - generic [ref=e26]: Goals
+        - link "Calendar" [ref=e27] [cursor=pointer]:
+          - /url: "#/calendar"
+          - img [ref=e28]
+          - generic [ref=e30]: Calendar
+        - link "Scorecard" [ref=e31] [cursor=pointer]:
+          - /url: "#/scorecard"
+          - img [ref=e32]
+          - generic [ref=e36]: Scorecard
+        - link "Analytics" [ref=e37] [cursor=pointer]:
+          - /url: "#/analytics"
+          - img [ref=e38]
+          - generic [ref=e40]: Analytics
+        - button "Sign Out" [ref=e41]:
+          - img [ref=e42]
+  - main [ref=e45]:
+    - generic [ref=e47]:
+      - img [ref=e48]
+      - heading "Start Your 12 Week Year" [level=2] [ref=e52]
+      - paragraph [ref=e53]: The 12 Week Year system helps you achieve more by focusing on 12-week goals instead of annual planning. Create your first period to get started.
+      - button "Create Your First 12 Week Period" [active] [ref=e54]

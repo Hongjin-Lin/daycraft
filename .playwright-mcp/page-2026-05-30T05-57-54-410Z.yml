@@ -1,0 +1,51 @@
+- generic [ref=e5]:
+  - navigation [ref=e6]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - heading "DayCraft" [level=1] [ref=e10]
+        - generic [ref=e11]: /
+        - generic [ref=e12]: 12 Week Year
+      - generic [ref=e13]:
+        - link "Dashboard" [ref=e14] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e15]
+          - generic [ref=e20]: Dashboard
+        - link "Goals" [ref=e21] [cursor=pointer]:
+          - /url: "#/goals"
+          - img [ref=e22]
+          - generic [ref=e26]: Goals
+        - link "Calendar" [ref=e27] [cursor=pointer]:
+          - /url: "#/calendar"
+          - img [ref=e28]
+          - generic [ref=e30]: Calendar
+        - link "Scorecard" [ref=e31] [cursor=pointer]:
+          - /url: "#/scorecard"
+          - img [ref=e32]
+          - generic [ref=e36]: Scorecard
+        - link "Analytics" [ref=e37] [cursor=pointer]:
+          - /url: "#/analytics"
+          - img [ref=e38]
+          - generic [ref=e40]: Analytics
+        - button "Sign Out" [ref=e41]:
+          - img [ref=e42]
+  - main [ref=e45]:
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - heading "Goals & Tactics" [level=2] [ref=e124]
+          - paragraph [ref=e125]: Define your goals and break them down into actionable tactics
+        - button "Add Goal" [ref=e126]:
+          - img [ref=e127]
+          - text: Add Goal
+      - generic [ref=e150] [cursor=pointer]:
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - img [ref=e153]
+            - heading "Learn React Native" [level=3] [ref=e157]
+          - paragraph [ref=e158]: Build a mobile app with React Native and Expo
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - generic [ref=e161]: 0%
+            - generic [ref=e162]: 0/0 tactics
+          - button [ref=e163]:
+            - img [ref=e164]

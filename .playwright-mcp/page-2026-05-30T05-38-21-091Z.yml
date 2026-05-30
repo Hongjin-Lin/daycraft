@@ -1,0 +1,22 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "DayCraft" [level=4] [ref=e6]
+    - paragraph [ref=e7]: Sign in to access your data
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]: Email
+      - textbox "Email" [ref=e12]:
+        - /placeholder: you@example.com
+        - text: test3@daycraft.app
+    - generic [ref=e13]:
+      - generic [ref=e14]: Password
+      - textbox "Password" [ref=e15]:
+        - /placeholder: ••••••••
+        - text: test123456
+    - paragraph [ref=e25]: Email logins are disabled
+    - button "Sign In" [ref=e21]:
+      - text: Sign In
+      - img
+    - paragraph [ref=e17]:
+      - text: Don't have an account?
+      - button "Sign Up" [ref=e22]

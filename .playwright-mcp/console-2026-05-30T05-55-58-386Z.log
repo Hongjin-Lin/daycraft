@@ -1,0 +1,3 @@
+[     104ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3001/node_modules/.vite/deps/chunk-YFB5YCE7.js?v=a10aba9a:21608
+[    7309ms] Error: Failed to create period
+    at createPeriod (http://localhost:3001/src/lib/store.ts?t=1780120551434:179:30)
