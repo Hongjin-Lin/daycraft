@@ -4,6 +4,7 @@ import { router } from './routes';
 import { supabase } from './lib/supabase';
 import { useStore } from './lib/store';
 import { AuthPage } from './components/AuthPage';
+import { UpdateChecker } from './components/UpdateChecker';
 import { Session } from '@supabase/supabase-js';
 
 function App() {
@@ -61,7 +62,12 @@ function App() {
     );
   }
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <UpdateChecker />
+    </>
+  );
 }
 
 export default App;
