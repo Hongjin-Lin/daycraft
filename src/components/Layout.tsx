@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
-import { LayoutDashboard, Target, Calendar as CalendarIcon, ClipboardCheck, BarChart3, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar as CalendarIcon, ClipboardCheck, BarChart3, LogOut, Menu, X, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export function Layout() {
@@ -11,6 +11,7 @@ export function Layout() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setMenuOpen(false);
   };
 
   const navItems = [
@@ -23,86 +24,69 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-14 sm:h-16">
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center h-14 gap-2">
             {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0">
-              <h1 className="font-bold text-lg sm:text-xl text-gray-900">
+            <div className="flex items-center gap-2 shrink-0 mr-2">
+              <h1 className="font-bold text-lg text-gray-900">
                 <span className="text-blue-600">Day</span>Craft
               </h1>
-              <span className="text-gray-300 hidden lg:inline">/</span>
-              <span className="text-gray-500 text-sm hidden lg:inline">12 Week Year</span>
             </div>
 
-            {/* Desktop nav */}
-            <div className="hidden lg:flex items-center gap-1">
+            {/* Nav items - scrollable on mobile */}
+            <div className="flex-1 overflow-x-auto flex items-center gap-1 scrollbar-hide">
               {navItems.map(item => (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap shrink-0 ${
                     isActive(item.to)
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium hidden sm:inline">{item.label}</span>
                 </Link>
               ))}
-
-              <button
-                onClick={handleSignOut}
-                className="flex items-center px-2 py-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors ml-1"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
 
-            {/* Mobile menu button */}
-            <button
-              className="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {/* Right hamburger menu */}
+            <div className="relative shrink-0">
+              <button
+                className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
+                {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+
+              {/* Dropdown */}
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs text-gray-400">Account</p>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Mobile nav dropdown */}
-        {menuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-lg">
-            <div className="px-4 py-2 space-y-1">
-              {navItems.map(item => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.to)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              ))}
-              <button
-                onClick={() => { handleSignOut(); setMenuOpen(false); }}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors w-full"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="font-medium">Sign Out</span>
-              </button>
-            </div>
-          </div>
-        )}
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      {/* Click outside to close menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+      )}
+
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         <Outlet />
       </main>
     </div>

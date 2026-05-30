@@ -10,25 +10,32 @@ export function UpdateChecker() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Only check on native platforms (Android app)
-    const isNative = window.location.protocol === 'file:';
-    if (!isNative) return;
+    // Check if running on Android (Capacitor uses localhost)
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (!isAndroid) return;
 
-    fetch(VERSION_CHECK_URL)
-      .then(res => res.json())
-      .then(data => {
+    const checkUpdate = async () => {
+      try {
+        const res = await fetch(VERSION_CHECK_URL + '?t=' + Date.now());
+        const data = await res.json();
         if (data.version && data.version !== CURRENT_VERSION) {
           setUpdateInfo(data);
         }
-      })
-      .catch(() => {}); // Silently fail if offline
+      } catch {
+        // Silently fail if offline
+      }
+    };
+
+    // Check after a short delay to not block app startup
+    const timer = setTimeout(checkUpdate, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!updateInfo || dismissed) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 animate-in slide-in-from-bottom">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-4 max-w-md mx-auto">
+    <div className="fixed bottom-4 left-4 right-4 z-50">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-4 max-w-sm mx-auto">
         <div className="flex items-start gap-3">
           <div className="flex-1">
             <h4 className="font-semibold text-gray-900 text-sm">New version available</h4>
@@ -44,23 +51,21 @@ export function UpdateChecker() {
           </button>
         </div>
         <div className="mt-3 flex gap-2">
-          <Button
-            asChild
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
+          <a
+            href={updateInfo.apkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            <a href={updateInfo.apkUrl} target="_blank" rel="noopener noreferrer">
-              <Download className="w-4 h-4 mr-2" />
-              Download Update
-            </a>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            <Download className="w-4 h-4" />
+            Download
+          </a>
+          <button
             onClick={() => setDismissed(true)}
+            className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
             Later
-          </Button>
+          </button>
         </div>
       </div>
     </div>
