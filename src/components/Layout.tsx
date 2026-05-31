@@ -18,6 +18,7 @@ const navItems = [
   { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
   { to: '/scorecard', label: 'Scorecard', icon: ClipboardCheck },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/agents', label: 'Agents', icon: Bot },
 ];
 
 export function Layout() {
@@ -60,15 +61,8 @@ export function Layout() {
         </nav>
 
         <div className="border-t border-gray-200 p-4">
-          <div className="rounded-md border border-blue-100 bg-blue-50 p-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-blue-950">
-              <Bot className="h-4 w-4" />
-              Agent-ready
-            </div>
-            <p className="mt-1 text-xs leading-5 text-blue-900">MCP can log work in the background.</p>
-          </div>
           {activePeriod && (
-            <div className="mt-3 rounded-md bg-gray-50 p-3 text-xs text-gray-600">
+            <div className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
               <div className="font-semibold text-gray-900">Active period</div>
               <div className="mt-1">{weeksInPeriod(activePeriod.startDate, activePeriod.endDate)} weeks</div>
               <div>{daysInPeriod(activePeriod.startDate, activePeriod.endDate)} days total</div>

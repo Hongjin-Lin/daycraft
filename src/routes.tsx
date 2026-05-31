@@ -5,6 +5,7 @@ import { Goals } from "./components/Goals";
 import { Calendar } from "./components/Calendar";
 import { Scorecard } from "./components/Scorecard";
 import { Analytics } from "./components/Analytics";
+import { Agents } from "./components/Agents";
 
 export const router = createHashRouter([
   {
@@ -16,6 +17,7 @@ export const router = createHashRouter([
       { path: "calendar", Component: Calendar },
       { path: "scorecard", Component: Scorecard },
       { path: "analytics", Component: Analytics },
+      { path: "agents", Component: Agents },
     ],
   },
 ]);

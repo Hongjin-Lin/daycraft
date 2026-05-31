@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Bot, Calendar, CheckCircle2, ChevronRight, Target, TrendingUp } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Target, TrendingUp } from 'lucide-react';
 import { useStore } from '../lib/store';
 import {
   daysInPeriod,
@@ -109,7 +109,7 @@ export function Dashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard
           label="Goals"
           value={`${totalGoals}`}
@@ -127,12 +127,6 @@ export function Dashboard() {
           value={`${executionRate}%`}
           detail={`${completedPeriodTodos}/${weekTodos.length} period tasks`}
           icon={<TrendingUp className="h-5 w-5 text-amber-600" />}
-        />
-        <MetricCard
-          label="Agent Ready"
-          value="MCP"
-          detail="Prepared for background logging"
-          icon={<Bot className="h-5 w-5 text-gray-700" />}
         />
       </section>
 
@@ -184,21 +178,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-lg border border-blue-100 bg-blue-50 p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Bot className="h-5 w-5 text-blue-700" />
-              <h3 className="text-sm font-semibold text-blue-950">AI agent workspace</h3>
-            </div>
-            <p className="text-sm leading-6 text-blue-900">
-              MCP tools can create goals, tactics, todos, and scores without opening the app. The UI now keeps period dates explicit so agents can log against the correct range.
-            </p>
-            <div className="mt-4 rounded-md bg-white/70 px-3 py-2 text-xs font-medium text-blue-900">
-              Next: expose authenticated agent tools with env-based credentials.
-            </div>
-          </div>
-          <ProgressTracker />
-        </div>
+        <ProgressTracker />
       </section>
     </div>
   );
