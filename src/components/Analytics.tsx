@@ -1,9 +1,10 @@
 import { useStore } from '../lib/store';
-import { format, eachDayOfInterval, startOfWeek, endOfWeek, differenceInWeeks, addDays, isWithinInterval } from 'date-fns';
+import { format, eachDayOfInterval, addDays, isWithinInterval } from 'date-fns';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { TrendingUp, Target, Calendar, Award, Activity, Zap } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { dateFromISO, daysInPeriod, daysPassedInPeriod, periodPercentComplete, weeksInPeriod } from '../lib/period-utils';
 
 export function Analytics() {
   const { periods, activePeriodId, todos, weeklyScores } = useStore();
@@ -13,18 +14,19 @@ export function Analytics() {
     return (
       <div className="text-center py-12">
         <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">Please create a 12 week period first from the dashboard.</p>
+        <p className="text-gray-600">Please create a planning period first from the dashboard.</p>
       </div>
     );
   }
   
   // Calculate time-based metrics
   const today = new Date();
-  const totalDays = 84;
-  const daysPassed = Math.floor((today.getTime() - activePeriod.startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const totalDays = daysInPeriod(activePeriod.startDate, activePeriod.endDate);
+  const totalWeeks = weeksInPeriod(activePeriod.startDate, activePeriod.endDate);
+  const daysPassed = Math.min(totalDays, daysPassedInPeriod(activePeriod.startDate, today));
   const daysRemaining = Math.max(0, totalDays - daysPassed);
-  const currentWeek = Math.min(Math.floor(daysPassed / 7) + 1, 12);
-  const percentComplete = Math.min(Math.round((daysPassed / totalDays) * 100), 100);
+  const currentWeek = Math.min(Math.floor(Math.max(0, daysPassed - 1) / 7) + 1, totalWeeks);
+  const percentComplete = periodPercentComplete(activePeriod.startDate, activePeriod.endDate, today);
   
   // Goal metrics
   const totalGoals = activePeriod.goals.length;
@@ -52,7 +54,7 @@ export function Analytics() {
   const predictedFinalProgress = Math.max(0, Math.min(100, averageProgress + (progressDelta * ((totalDays - daysPassed) / Math.max(daysPassed, 1)))));
   
   // Weekly Execution Trend Chart Data
-  const weeklyTrendData = Array.from({ length: 12 }, (_, i) => {
+  const weeklyTrendData = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNum = i + 1;
     const score = periodScores.find(s => s.weekNumber === weekNum);
     
@@ -60,7 +62,7 @@ export function Analytics() {
     const weekStart = addDays(activePeriod.startDate, i * 7);
     const weekEnd = addDays(weekStart, 6);
     const weekTodos = todos.filter(t => {
-      const todoDate = new Date(t.date);
+      const todoDate = dateFromISO(t.date);
       return isWithinInterval(todoDate, { start: weekStart, end: weekEnd });
     });
     const weekCompleted = weekTodos.filter(t => t.completed).length;
@@ -117,7 +119,7 @@ export function Analytics() {
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h2>
-        <p className="text-gray-600">Comprehensive insights and predictions for your 12 week period</p>
+        <p className="text-gray-600">Comprehensive insights and predictions for your active period</p>
       </div>
       
       {/* Key Metrics */}

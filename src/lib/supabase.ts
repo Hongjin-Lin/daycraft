@@ -248,12 +248,12 @@ class SupabaseQueryBuilder {
   }
 
   eq(col: string, val: any) {
-    this.filters.push(`${col}=eq.${val}`);
+    this.filters.push(`${encodeURIComponent(col)}=eq.${encodeURIComponent(String(val))}`);
     return this;
   }
 
   in(col: string, val: any[]) {
-    this.filters.push(`${col}=in.(${val.join(',')})`);
+    this.filters.push(`${encodeURIComponent(col)}=in.(${val.map(v => encodeURIComponent(String(v))).join(',')})`);
     return this;
   }
 
@@ -302,10 +302,11 @@ class SupabaseQueryBuilder {
       // For PATCH/DELETE, add filters to URL
       if (this.method === 'PATCH' || this.method === 'DELETE') {
         let filterUrl = `${SUPABASE_URL}/rest/v1/${this.tableName}`;
-        const sep = '?';
-        for (const f of this.filters) {
-          filterUrl += `${sep}${f}`;
-          sep || (filterUrl += '&');
+        this.filters.forEach((f, index) => {
+          filterUrl += `${index === 0 ? '?' : '&'}${f}`;
+        });
+        if (this.method === 'PATCH') {
+          filterUrl += `${this.filters.length === 0 ? '?' : '&'}select=*`;
         }
         url = filterUrl;
       }
@@ -347,7 +348,7 @@ export const supabase = {
   // Realtime placeholder - we'll use polling instead
   channel(_name: string) {
     return {
-      on() { return this; },
+      on(..._args: any[]) { return this; },
       subscribe() { return () => {}; },
     };
   },

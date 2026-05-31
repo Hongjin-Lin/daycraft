@@ -35,14 +35,15 @@ export function Goals() {
     const dueWeek = tacticDueWeeks[goalId];
     addTactic(goalId, tacticTitle, dueWeek);
     setTacticInputs({ ...tacticInputs, [goalId]: '' });
-    setTacticDueWeeks({ ...tacticDueWeeks, [goalId]: undefined });
+    const { [goalId]: _removed, ...remainingDueWeeks } = tacticDueWeeks;
+    setTacticDueWeeks(remainingDueWeeks);
   };
   
   if (!activePeriod) {
     return (
       <div className="text-center py-12">
         <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">Please create a 12 week period first from the dashboard.</p>
+        <p className="text-gray-600">Please create a planning period first from the dashboard.</p>
       </div>
     );
   }
@@ -123,7 +124,7 @@ export function Goals() {
           <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-gray-900 mb-2">No Goals Yet</h3>
           <p className="text-gray-600 mb-6">
-            Start by creating your first goal for this 12 week period
+            Start by creating your first goal for this planning period
           </p>
           <button
             onClick={() => setShowGoalForm(true)}
@@ -258,10 +259,17 @@ export function Goals() {
                       <select
                         value={tacticDueWeeks[goal.id] || ''}
                         onChange={(e) =>
-                          setTacticDueWeeks({ 
-                            ...tacticDueWeeks, 
-                            [goal.id]: e.target.value ? parseInt(e.target.value) : undefined 
-                          })
+                          {
+                            if (e.target.value) {
+                              setTacticDueWeeks({
+                                ...tacticDueWeeks,
+                                [goal.id]: parseInt(e.target.value),
+                              });
+                            } else {
+                              const { [goal.id]: _removed, ...remainingDueWeeks } = tacticDueWeeks;
+                              setTacticDueWeeks(remainingDueWeeks);
+                            }
+                          }
                         }
                         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                       >
