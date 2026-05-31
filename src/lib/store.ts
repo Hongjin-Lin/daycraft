@@ -87,7 +87,7 @@ interface AppState {
   toggleTactic: (goalId: string, tacticId: string) => Promise<void>;
   deleteTactic: (goalId: string, tacticId: string) => Promise<void>;
 
-  addTodo: (todo: Omit<Todo, 'id'>) => Promise<void>;
+  addTodo: (todo: Omit<Todo, 'id'>) => Promise<Todo>;
   updateTodo: (todoId: string, updates: Partial<Todo>) => Promise<void>;
   deleteTodo: (todoId: string) => Promise<void>;
   toggleTodo: (todoId: string) => Promise<void>;
@@ -472,7 +472,9 @@ export const useStore = create<AppState>()((set, get) => ({
     if (error) throw error;
     if (!data) throw new Error('Failed to add todo');
 
-    set(state => ({ todos: [...state.todos, toTodo(data)] }));
+    const newTodo = toTodo(data);
+    set(state => ({ todos: [...state.todos, newTodo] }));
+    return newTodo;
   },
 
   updateTodo: async (todoId, updates) => {

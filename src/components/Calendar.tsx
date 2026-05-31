@@ -1,721 +1,563 @@
-import { useState } from 'react';
-import { useStore } from '../lib/store';
+import { useMemo, useState } from 'react';
 import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
   addDays,
-  addWeeks,
-  subWeeks,
-  isSameMonth,
-  isSameDay,
   addMonths,
+  addWeeks,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
   subMonths,
-  isWithinInterval,
+  subWeeks,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, Trash2, Calendar as CalendarIcon, LayoutGrid, Columns, Eye } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  Clock,
+  Columns3,
+  Grid3X3,
+  ListChecks,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { useStore } from '../lib/store';
+import type { Goal, Todo } from '../lib/types';
 
 type ViewMode = 'day' | 'week' | 'month';
+type EventKind = 'task' | 'focus' | 'meeting' | 'personal';
+type EventColor = 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray';
+
+interface CalendarEventMeta {
+  startTime: string;
+  endTime: string;
+  kind: EventKind;
+  color: EventColor;
+}
+
+interface DraftEvent extends CalendarEventMeta {
+  title: string;
+  date: string;
+  goalId: string;
+  tacticId: string;
+}
+
+const META_STORAGE_KEY = 'daycraft-calendar-event-meta';
+const HOURS = Array.from({ length: 17 }, (_, index) => index + 6);
+const KIND_OPTIONS: Array<{ value: EventKind; label: string }> = [
+  { value: 'task', label: 'Task' },
+  { value: 'focus', label: 'Focus' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'personal', label: 'Personal' },
+];
+const COLOR_OPTIONS: Array<{ value: EventColor; label: string }> = [
+  { value: 'blue', label: 'Blue' },
+  { value: 'green', label: 'Green' },
+  { value: 'amber', label: 'Amber' },
+  { value: 'red', label: 'Red' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'gray', label: 'Gray' },
+];
+
+function formatDateKey(date: Date) {
+  return format(date, 'yyyy-MM-dd');
+}
+
+function timeAt(hour: number) {
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function addHour(time: string) {
+  const hour = Math.min(23, Number(time.slice(0, 2)) + 1);
+  return timeAt(hour);
+}
+
+function loadEventMeta(): Record<string, CalendarEventMeta> {
+  try {
+    return JSON.parse(localStorage.getItem(META_STORAGE_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function defaultMeta(index = 0): CalendarEventMeta {
+  const hour = 9 + (index % 8);
+  return {
+    startTime: timeAt(hour),
+    endTime: timeAt(hour + 1),
+    kind: 'task',
+    color: 'blue',
+  };
+}
 
 export function Calendar() {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showAddTodo, setShowAddTodo] = useState(false);
-  
-  const { todos, addTodo, toggleTodo, deleteTodo } = useStore();
-  
-  const nextPeriod = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(addMonths(currentDate, 1));
-    } else if (viewMode === 'week') {
-      setCurrentDate(addWeeks(currentDate, 1));
-    } else {
-      setCurrentDate(addDays(currentDate, 1));
+  const [draft, setDraft] = useState<DraftEvent | null>(null);
+  const [dragStart, setDragStart] = useState<{ date: string; hour: number } | null>(null);
+  const [eventMeta, setEventMeta] = useState<Record<string, CalendarEventMeta>>(loadEventMeta);
+
+  const { periods, activePeriodId, todos, addTodo, toggleTodo, deleteTodo } = useStore();
+  const activePeriod = periods.find(period => period.id === activePeriodId);
+
+  const visibleDays = useMemo(() => {
+    if (viewMode === 'day') return [currentDate];
+    if (viewMode === 'week') {
+      const start = startOfWeek(currentDate);
+      return Array.from({ length: 7 }, (_, index) => addDays(start, index));
     }
-  };
-  
-  const prevPeriod = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(subMonths(currentDate, 1));
-    } else if (viewMode === 'week') {
-      setCurrentDate(subWeeks(currentDate, 1));
-    } else {
-      setCurrentDate(addDays(currentDate, -1));
+
+    const monthStart = startOfMonth(currentDate);
+    const calendarStart = startOfWeek(monthStart);
+    const calendarEnd = endOfWeek(endOfMonth(monthStart));
+    const days: Date[] = [];
+    for (let day = calendarStart; day <= calendarEnd; day = addDays(day, 1)) {
+      days.push(day);
     }
+    return days;
+  }, [currentDate, viewMode]);
+
+  const todosByDate = useMemo(() => {
+    const map = new Map<string, Todo[]>();
+    for (const todo of todos) {
+      const list = map.get(todo.date) ?? [];
+      list.push(todo);
+      map.set(todo.date, list);
+    }
+    return map;
+  }, [todos]);
+
+  const title = getCalendarTitle(viewMode, currentDate);
+
+  const persistMeta = (next: Record<string, CalendarEventMeta>) => {
+    setEventMeta(next);
+    localStorage.setItem(META_STORAGE_KEY, JSON.stringify(next));
   };
-  
-  const getTodosForDate = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return todos.filter(t => t.date === dateStr);
+
+  const openDraft = (date: string, startTime = '09:00', endTime = '10:00') => {
+    setDraft({
+      title: '',
+      date,
+      startTime,
+      endTime,
+      kind: 'task',
+      color: 'blue',
+      goalId: '',
+      tacticId: '',
+    });
   };
-  
+
+  const handleSlotPointerUp = (date: string, hour: number) => {
+    if (dragStart && dragStart.date === date) {
+      const start = Math.min(dragStart.hour, hour);
+      const end = Math.max(dragStart.hour, hour) + 1;
+      openDraft(date, timeAt(start), timeAt(end));
+    } else {
+      openDraft(date, timeAt(hour), timeAt(hour + 1));
+    }
+    setDragStart(null);
+  };
+
+  const handleSubmitDraft = async () => {
+    if (!draft || !draft.title.trim()) return;
+
+    const todo = await addTodo({
+      title: draft.title.trim(),
+      date: draft.date,
+      completed: false,
+      goalId: draft.goalId || undefined,
+      tacticId: draft.tacticId || undefined,
+    });
+
+    persistMeta({
+      ...eventMeta,
+      [todo.id]: {
+        startTime: draft.startTime,
+        endTime: draft.endTime,
+        kind: draft.kind,
+        color: draft.color,
+      },
+    });
+    setDraft(null);
+  };
+
+  const handleDeleteTodo = async (todoId: string) => {
+    await deleteTodo(todoId);
+    const next = { ...eventMeta };
+    delete next[todoId];
+    persistMeta(next);
+  };
+
+  const shiftCalendar = (direction: -1 | 1) => {
+    if (viewMode === 'day') setCurrentDate(addDays(currentDate, direction));
+    if (viewMode === 'week') setCurrentDate(direction > 0 ? addWeeks(currentDate, 1) : subWeeks(currentDate, 1));
+    if (viewMode === 'month') setCurrentDate(direction > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="calendar-page">
+      <section className="calendar-toolbar">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Calendar</h2>
-          <p className="text-gray-600">Plan your days and align tasks with your goals</p>
+          <h2>Calendar</h2>
+          <p>Plan tasks in a familiar calendar grid and attach each item to goals or tactics.</p>
         </div>
-        
-        {/* View Toggle */}
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList>
-            <TabsTrigger value="day" className="flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              Day
-            </TabsTrigger>
-            <TabsTrigger value="week" className="flex items-center gap-2">
-              <Columns className="w-4 h-4" />
-              Week
-            </TabsTrigger>
-            <TabsTrigger value="month" className="flex items-center gap-2">
-              <LayoutGrid className="w-4 h-4" />
-              Month
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-      
-      {viewMode === 'day' && (
-        <DayView
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          currentDate={currentDate}
-          nextPeriod={nextPeriod}
-          prevPeriod={prevPeriod}
-          getTodosForDate={getTodosForDate}
-          showAddTodo={showAddTodo}
-          setShowAddTodo={setShowAddTodo}
-        />
-      )}
-      
-      {viewMode === 'week' && (
-        <WeekView
-          currentDate={currentDate}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          nextPeriod={nextPeriod}
-          prevPeriod={prevPeriod}
-          getTodosForDate={getTodosForDate}
-          showAddTodo={showAddTodo}
-          setShowAddTodo={setShowAddTodo}
-        />
-      )}
-      
-      {viewMode === 'month' && (
-        <MonthView
-          currentDate={currentDate}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          nextPeriod={nextPeriod}
-          prevPeriod={prevPeriod}
-          getTodosForDate={getTodosForDate}
-          showAddTodo={showAddTodo}
-          setShowAddTodo={setShowAddTodo}
-        />
-      )}
-    </div>
-  );
-}
-
-// Day View Component
-function DayView({
-  selectedDate,
-  setSelectedDate,
-  currentDate,
-  nextPeriod,
-  prevPeriod,
-  getTodosForDate,
-  showAddTodo,
-  setShowAddTodo,
-}: any) {
-  const { addTodo, toggleTodo, deleteTodo } = useStore();
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const todosForSelectedDate = getTodosForDate(selectedDate);
-  
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      {/* Navigation */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-gray-900">
-          {format(currentDate, 'EEEE, MMMM d, yyyy')}
-        </h3>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={prevPeriod}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={nextPeriod}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-      
-      {/* Add Todo Button */}
-      <div className="mb-4">
-        <Button onClick={() => setShowAddTodo(true)} className="w-full">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Task
-        </Button>
-      </div>
-      
-      {/* Add Todo Form */}
-      {showAddTodo && (
-        <AddTodoForm
-          date={selectedDateStr}
-          onAdd={(title, goalId, tacticId) => {
-            addTodo({
-              title,
-              date: selectedDateStr,
-              completed: false,
-              goalId,
-              tacticId,
-            });
-            setShowAddTodo(false);
-          }}
-          onCancel={() => setShowAddTodo(false)}
-        />
-      )}
-      
-      {/* Todos List */}
-      <div className="space-y-2">
-        {todosForSelectedDate.length === 0 ? (
-          <div className="text-center py-12">
-            <CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500">No tasks for this day</p>
+        <div className="calendar-toolbar-actions">
+          <div className="calendar-view-switch" aria-label="Calendar view">
+            <ViewButton active={viewMode === 'day'} onClick={() => setViewMode('day')} icon={<ListChecks className="h-4 w-4" />} label="Day" />
+            <ViewButton active={viewMode === 'week'} onClick={() => setViewMode('week')} icon={<Columns3 className="h-4 w-4" />} label="Week" />
+            <ViewButton active={viewMode === 'month'} onClick={() => setViewMode('month')} icon={<Grid3X3 className="h-4 w-4" />} label="Month" />
           </div>
-        ) : (
-          todosForSelectedDate.map((todo: any) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onToggle={() => toggleTodo(todo.id)}
-              onDelete={() => deleteTodo(todo.id)}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
+          <button className="calendar-primary-button" onClick={() => openDraft(formatDateKey(currentDate))}>
+            <Plus className="h-4 w-4" />
+            Add task
+          </button>
+        </div>
+      </section>
 
-// Week View Component
-function WeekView({
-  currentDate,
-  selectedDate,
-  setSelectedDate,
-  nextPeriod,
-  prevPeriod,
-  getTodosForDate,
-  showAddTodo,
-  setShowAddTodo,
-}: any) {
-  const { addTodo, toggleTodo, deleteTodo } = useStore();
-  
-  const weekStart = startOfWeek(currentDate);
-  const weekEnd = endOfWeek(currentDate);
-  
-  const weekDays: Date[] = [];
-  let day = weekStart;
-  while (day <= weekEnd) {
-    weekDays.push(day);
-    day = addDays(day, 1);
-  }
-  
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  
-  // Calculate week stats
-  const allWeekTodos = weekDays.flatMap(d => getTodosForDate(d));
-  const completedWeekTodos = allWeekTodos.filter((t: any) => t.completed).length;
-  
-  return (
-    <div className="space-y-4">
-      {/* Week Header */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <section className="calendar-shell">
+        <div className="calendar-nav">
+          <button className="calendar-icon-button" onClick={() => shiftCalendar(-1)} aria-label="Previous period">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
           <div>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-            </h3>
-            <p className="text-gray-600 mt-1">
-              {completedWeekTodos} / {allWeekTodos.length} tasks completed this week
-            </p>
+            <h3>{title}</h3>
+            <p>{viewMode === 'month' ? 'Click a day to add a task' : 'Click or drag in the time grid to create an event'}</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={prevPeriod}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={nextPeriod}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+          <button className="calendar-icon-button" onClick={() => shiftCalendar(1)} aria-label="Next period">
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
-        
-        {/* Week Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full transition-all"
-            style={{
-              width: `${allWeekTodos.length > 0 ? (completedWeekTodos / allWeekTodos.length) * 100 : 0}%`,
-            }}
+
+        {viewMode === 'month' ? (
+          <MonthGrid
+            currentDate={currentDate}
+            days={visibleDays}
+            todosByDate={todosByDate}
+            eventMeta={eventMeta}
+            onCreate={openDraft}
+            onToggle={toggleTodo}
+            onDelete={handleDeleteTodo}
           />
+        ) : (
+          <TimeGrid
+            days={visibleDays}
+            todosByDate={todosByDate}
+            eventMeta={eventMeta}
+            onPointerDown={(date, hour) => setDragStart({ date, hour })}
+            onPointerUp={handleSlotPointerUp}
+            onCreate={openDraft}
+            onToggle={toggleTodo}
+            onDelete={handleDeleteTodo}
+          />
+        )}
+      </section>
+
+      {draft && (
+        <EventDraftPanel
+          draft={draft}
+          activePeriod={activePeriod}
+          onChange={setDraft}
+          onSubmit={handleSubmitDraft}
+          onCancel={() => setDraft(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function getCalendarTitle(viewMode: ViewMode, currentDate: Date) {
+  if (viewMode === 'day') return format(currentDate, 'EEEE, MMMM d, yyyy');
+  if (viewMode === 'week') {
+    const start = startOfWeek(currentDate);
+    const end = endOfWeek(currentDate);
+    return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
+  }
+  return format(currentDate, 'MMMM yyyy');
+}
+
+function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button className={active ? 'is-active' : ''} onClick={onClick}>
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function TimeGrid({
+  days,
+  todosByDate,
+  eventMeta,
+  onPointerDown,
+  onPointerUp,
+  onCreate,
+  onToggle,
+  onDelete,
+}: {
+  days: Date[];
+  todosByDate: Map<string, Todo[]>;
+  eventMeta: Record<string, CalendarEventMeta>;
+  onPointerDown: (date: string, hour: number) => void;
+  onPointerUp: (date: string, hour: number) => void;
+  onCreate: (date: string, startTime?: string, endTime?: string) => void;
+  onToggle: (todoId: string) => void;
+  onDelete: (todoId: string) => void;
+}) {
+  return (
+    <div className="calendar-time-grid" style={{ ['--calendar-days' as string]: days.length }}>
+      <div className="calendar-time-header" />
+      {days.map(day => {
+        const isToday = isSameDay(day, new Date());
+        return (
+          <div key={day.toISOString()} className={`calendar-day-header ${isToday ? 'is-today' : ''}`}>
+            <span>{format(day, 'EEE')}</span>
+            <strong>{format(day, 'd')}</strong>
+          </div>
+        );
+      })}
+
+      {HOURS.map(hour => (
+        <div key={`time-${hour}`} className="calendar-hour-label">
+          {timeAt(hour)}
         </div>
-      </div>
-      
-      {/* Week Days Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-        {weekDays.map((day) => {
-          const dayTodos = getTodosForDate(day);
-          const isToday = isSameDay(day, new Date());
-          const isSelected = isSameDay(day, selectedDate);
-          
-          return (
-            <div
-              key={day.toISOString()}
-              className={`bg-white rounded-lg border-2 p-4 transition-all ${
-                isSelected ? 'border-blue-600 shadow-md' : 'border-gray-200'
-              }`}
-            >
-              <div className="mb-3">
-                <div className="text-sm text-gray-600">{format(day, 'EEE')}</div>
-                <div
-                  className={`text-2xl font-bold ${
-                    isToday ? 'text-blue-600' : 'text-gray-900'
-                  }`}
-                >
-                  {format(day, 'd')}
-                </div>
-                {dayTodos.length > 0 && (
-                  <Badge variant="secondary" className="mt-1">
-                    {dayTodos.filter((t: any) => t.completed).length}/{dayTodos.length}
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {dayTodos.map((todo: any) => (
-                  <div
+      )).flatMap((timeLabel, hourIndex) => {
+        const hour = HOURS[hourIndex];
+        return [
+          timeLabel,
+          ...days.map(day => {
+            const date = formatDateKey(day);
+            const slotTodos = (todosByDate.get(date) ?? []).filter((todo, index) => {
+              const meta = eventMeta[todo.id] ?? defaultMeta(index);
+              return Number(meta.startTime.slice(0, 2)) === hour;
+            });
+
+            return (
+              <div
+                key={`${date}-${hour}`}
+                className="calendar-time-slot"
+                onPointerDown={() => onPointerDown(date, hour)}
+                onPointerUp={() => onPointerUp(date, hour)}
+                onDoubleClick={() => onCreate(date, timeAt(hour), timeAt(hour + 1))}
+              >
+                {slotTodos.map(todo => (
+                  <CalendarEvent
                     key={todo.id}
-                    onClick={() => setSelectedDate(day)}
-                    className="cursor-pointer"
-                  >
-                    <WeekTodoItem
-                      todo={todo}
-                      onToggle={() => toggleTodo(todo.id)}
-                    />
-                  </div>
+                    todo={todo}
+                    meta={eventMeta[todo.id] ?? defaultMeta()}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                  />
                 ))}
-                
-                {dayTodos.length === 0 && (
-                  <button
-                    onClick={() => {
-                      setSelectedDate(day);
-                      setShowAddTodo(true);
-                    }}
-                    className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                  >
-                    + Add task
-                  </button>
-                )}
+              </div>
+            );
+          }),
+        ];
+      })}
+    </div>
+  );
+}
+
+function MonthGrid({
+  currentDate,
+  days,
+  todosByDate,
+  eventMeta,
+  onCreate,
+  onToggle,
+  onDelete,
+}: {
+  currentDate: Date;
+  days: Date[];
+  todosByDate: Map<string, Todo[]>;
+  eventMeta: Record<string, CalendarEventMeta>;
+  onCreate: (date: string, startTime?: string, endTime?: string) => void;
+  onToggle: (todoId: string) => void;
+  onDelete: (todoId: string) => void;
+}) {
+  return (
+    <div>
+      <div className="calendar-month-weekdays">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          <div key={day}>{day}</div>
+        ))}
+      </div>
+      <div className="calendar-month-grid">
+        {days.map(day => {
+          const date = formatDateKey(day);
+          const dayTodos = todosByDate.get(date) ?? [];
+          return (
+            <div key={date} className={`calendar-month-cell ${!isSameMonth(day, currentDate) ? 'is-muted' : ''}`}>
+              <button className="calendar-month-date" onClick={() => onCreate(date)}>
+                <span className={isSameDay(day, new Date()) ? 'is-today' : ''}>{format(day, 'd')}</span>
+                <Plus className="h-3 w-3" />
+              </button>
+              <div className="calendar-month-events">
+                {dayTodos.slice(0, 4).map((todo, index) => (
+                  <CalendarEvent
+                    key={todo.id}
+                    todo={todo}
+                    compact
+                    meta={eventMeta[todo.id] ?? defaultMeta(index)}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                  />
+                ))}
+                {dayTodos.length > 4 && <div className="calendar-more-count">+{dayTodos.length - 4} more</div>}
               </div>
             </div>
           );
         })}
       </div>
-      
-      {/* Add Todo Form (appears when showAddTodo is true) */}
-      {showAddTodo && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h4 className="font-semibold mb-4">Add task for {format(selectedDate, 'MMM d, yyyy')}</h4>
-          <AddTodoForm
-            date={selectedDateStr}
-            onAdd={(title, goalId, tacticId) => {
-              addTodo({
-                title,
-                date: selectedDateStr,
-                completed: false,
-                goalId,
-                tacticId,
-              });
-              setShowAddTodo(false);
-            }}
-            onCancel={() => setShowAddTodo(false)}
-          />
-        </div>
-      )}
     </div>
   );
 }
 
-// Month View Component
-function MonthView({
-  currentDate,
-  selectedDate,
-  setSelectedDate,
-  nextPeriod,
-  prevPeriod,
-  getTodosForDate,
-  showAddTodo,
-  setShowAddTodo,
-}: any) {
-  const { addTodo, toggleTodo, deleteTodo } = useStore();
-  
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(monthStart);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-  
-  const calendarDays: Date[] = [];
-  let day = calendarStart;
-  while (day <= calendarEnd) {
-    calendarDays.push(day);
-    day = addDays(day, 1);
-  }
-  
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const todosForSelectedDate = getTodosForDate(selectedDate);
-  
-  // Calculate month stats
-  const monthTodos = calendarDays
-    .filter(d => isSameMonth(d, currentDate))
-    .flatMap(d => getTodosForDate(d));
-  const completedMonthTodos = monthTodos.filter((t: any) => t.completed).length;
-  
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Calendar Grid */}
-      <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
-        {/* Calendar Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">
-              {format(currentDate, 'MMMM yyyy')}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {completedMonthTodos} / {monthTodos.length} tasks completed this month
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={prevPeriod}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={nextPeriod}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* Days of Week */}
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div
-              key={day}
-              className="text-center text-sm font-semibold text-gray-600 py-2"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-        
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7 gap-2">
-          {calendarDays.map((day, idx) => {
-            const dayTodos = getTodosForDate(day);
-            const isSelected = isSameDay(day, selectedDate);
-            const isToday = isSameDay(day, new Date());
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const completedTodos = dayTodos.filter((t: any) => t.completed).length;
-            
-            return (
-              <button
-                key={idx}
-                onClick={() => setSelectedDate(day)}
-                className={`
-                  relative min-h-20 p-2 rounded-lg border transition-all hover:shadow-md
-                  ${isSelected ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-gray-300'}
-                  ${!isCurrentMonth ? 'opacity-40' : ''}
-                `}
-              >
-                <div
-                  className={`
-                    text-sm font-medium mb-1
-                    ${isToday ? 'text-blue-600 font-bold' : ''}
-                    ${isSelected ? 'text-blue-600' : 'text-gray-900'}
-                  `}
-                >
-                  {format(day, 'd')}
-                </div>
-                
-                {dayTodos.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex justify-center gap-0.5">
-                      {dayTodos.slice(0, 3).map((_: any, i: number) => (
-                        <div
-                          key={i}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            i < completedTodos ? 'bg-green-500' : 'bg-gray-400'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {completedTodos}/{dayTodos.length}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      
-      {/* Selected Day Details */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-gray-900">
-              {format(selectedDate, 'MMM d, yyyy')}
-            </h3>
-            <p className="text-sm text-gray-600">{format(selectedDate, 'EEEE')}</p>
-          </div>
-          <Button onClick={() => setShowAddTodo(true)} size="icon">
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-        
-        {/* Add Todo Form */}
-        {showAddTodo && (
-          <AddTodoForm
-            date={selectedDateStr}
-            onAdd={(title, goalId, tacticId) => {
-              addTodo({
-                title,
-                date: selectedDateStr,
-                completed: false,
-                goalId,
-                tacticId,
-              });
-              setShowAddTodo(false);
-            }}
-            onCancel={() => setShowAddTodo(false)}
-          />
-        )}
-        
-        {/* Todos List */}
-        <div className="space-y-2">
-          {todosForSelectedDate.length === 0 ? (
-            <div className="text-center py-8">
-              <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No tasks for this day</p>
-            </div>
-          ) : (
-            todosForSelectedDate.map((todo: any) => (
-              <TodoItem
-                key={todo.id}
-                todo={todo}
-                onToggle={() => toggleTodo(todo.id)}
-                onDelete={() => deleteTodo(todo.id)}
-              />
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Week Todo Item (compact version for week view)
-function WeekTodoItem({ todo, onToggle }: { todo: any; onToggle: () => void }) {
-  const { periods, activePeriodId } = useStore();
-  const activePeriod = periods.find(p => p.id === activePeriodId);
-  
-  const linkedGoal = activePeriod?.goals.find(g => g.id === todo.goalId);
-  const linkedTactic = linkedGoal?.tactics.find(t => t.id === todo.tacticId);
-  
-  return (
-    <div className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition-colors">
-      <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex-shrink-0">
-        {todo.completed ? (
-          <CheckCircle2 className="w-4 h-4 text-green-600" />
-        ) : (
-          <Circle className="w-4 h-4 text-gray-400" />
-        )}
-      </button>
-      
-      <div className="flex-1 min-w-0">
-        <div
-          className={`text-xs font-medium truncate ${
-            todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
-          }`}
-        >
-          {todo.title}
-        </div>
-        
-        {linkedTactic && (
-          <div className="text-xs text-purple-600 truncate mt-0.5">
-            {linkedTactic.title}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Add Todo Form Component
-function AddTodoForm({
-  date,
-  onAdd,
-  onCancel,
-}: {
-  date: string;
-  onAdd: (title: string, goalId?: string, tacticId?: string) => void;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [selectedGoalId, setSelectedGoalId] = useState<string>('');
-  const [selectedTacticId, setSelectedTacticId] = useState<string>('');
-  
-  const { periods, activePeriodId } = useStore();
-  const activePeriod = periods.find(p => p.id === activePeriodId);
-  
-  const selectedGoal = activePeriod?.goals.find(g => g.id === selectedGoalId);
-  
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    onAdd(
-      title,
-      selectedGoalId || undefined,
-      selectedTacticId || undefined
-    );
-    setTitle('');
-    setSelectedGoalId('');
-    setSelectedTacticId('');
-  };
-  
-  return (
-    <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSubmit();
-        }}
-        placeholder="Task title..."
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-        autoFocus
-      />
-      
-      {activePeriod && activePeriod.goals.length > 0 && (
-        <>
-          <select
-            value={selectedGoalId}
-            onChange={(e) => {
-              setSelectedGoalId(e.target.value);
-              setSelectedTacticId('');
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-          >
-            <option value="">Link to goal (optional)</option>
-            {activePeriod.goals.map((goal) => (
-              <option key={goal.id} value={goal.id}>
-                {goal.title}
-              </option>
-            ))}
-          </select>
-          
-          {selectedGoal && selectedGoal.tactics.length > 0 && (
-            <select
-              value={selectedTacticId}
-              onChange={(e) => setSelectedTacticId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            >
-              <option value="">Link to tactic (optional)</option>
-              {selectedGoal.tactics.map((tactic) => (
-                <option key={tactic.id} value={tactic.id}>
-                  {tactic.title}
-                </option>
-              ))}
-            </select>
-          )}
-        </>
-      )}
-      
-      <div className="flex gap-2">
-        <Button onClick={handleSubmit} className="flex-1">
-          Add Task
-        </Button>
-        <Button onClick={onCancel} variant="outline">
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Todo Item Component
-function TodoItem({
+function CalendarEvent({
   todo,
+  meta,
+  compact,
   onToggle,
   onDelete,
 }: {
-  todo: any;
-  onToggle: () => void;
-  onDelete: () => void;
+  todo: Todo;
+  meta: CalendarEventMeta;
+  compact?: boolean;
+  onToggle: (todoId: string) => void;
+  onDelete: (todoId: string) => void;
 }) {
-  const { periods, activePeriodId } = useStore();
-  const activePeriod = periods.find(p => p.id === activePeriodId);
-  
-  const linkedGoal = activePeriod?.goals.find(g => g.id === todo.goalId);
-  const linkedTactic = linkedGoal?.tactics.find(t => t.id === todo.tacticId);
-  
   return (
-    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 group">
-      <button onClick={onToggle} className="flex-shrink-0 mt-0.5">
-        {todo.completed ? (
-          <CheckCircle2 className="w-5 h-5 text-green-600" />
-        ) : (
-          <Circle className="w-5 h-5 text-gray-400" />
-        )}
+    <div
+      className={`calendar-event calendar-event-${meta.color} ${todo.completed ? 'is-complete' : ''} ${compact ? 'is-compact' : ''}`}
+      onPointerDown={event => event.stopPropagation()}
+      onPointerUp={event => event.stopPropagation()}
+    >
+      <button
+        className="calendar-event-check"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle(todo.id);
+        }}
+      >
+        {todo.completed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
       </button>
-      
-      <div className="flex-1 min-w-0">
-        <div
-          className={`text-sm font-medium ${
-            todo.completed ? 'line-through text-gray-500' : 'text-gray-900'
-          }`}
-        >
-          {todo.title}
-        </div>
-        
-        {(linkedGoal || linkedTactic) && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {linkedGoal && (
-              <Badge variant="secondary" className="text-xs">
-                🎯 {linkedGoal.title}
-              </Badge>
-            )}
-            {linkedTactic && (
-              <Badge variant="outline" className="text-xs">
-                {linkedTactic.title}
-              </Badge>
-            )}
+      <div className="calendar-event-body">
+        <div className="calendar-event-title">{todo.title}</div>
+        {!compact && (
+          <div className="calendar-event-meta">
+            <Clock className="h-3 w-3" />
+            {meta.startTime}-{meta.endTime} · {meta.kind}
           </div>
         )}
       </div>
-      
       <button
-        onClick={onDelete}
-        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600"
+        className="calendar-event-delete"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(todo.id);
+        }}
       >
-        <Trash2 className="w-4 h-4" />
+        <Trash2 className="h-3.5 w-3.5" />
       </button>
+    </div>
+  );
+}
+
+function EventDraftPanel({
+  draft,
+  activePeriod,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  draft: DraftEvent;
+  activePeriod?: { goals: Goal[] };
+  onChange: (draft: DraftEvent) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  const selectedGoal = activePeriod?.goals.find(goal => goal.id === draft.goalId);
+
+  const update = (updates: Partial<DraftEvent>) => {
+    const next = { ...draft, ...updates };
+    if (updates.startTime && next.endTime <= updates.startTime) {
+      next.endTime = addHour(updates.startTime);
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="calendar-form-overlay">
+      <div className="calendar-form">
+        <div className="calendar-form-header">
+          <div>
+            <h3>Create task</h3>
+            <p>{format(new Date(`${draft.date}T00:00:00`), 'EEEE, MMM d')}</p>
+          </div>
+          <button className="calendar-icon-button" onClick={onCancel}>×</button>
+        </div>
+
+        <label>
+          Title
+          <input value={draft.title} onChange={event => update({ title: event.target.value })} placeholder="Task title" autoFocus />
+        </label>
+
+        <div className="calendar-form-row">
+          <label>
+            Start
+            <input type="time" value={draft.startTime} onChange={event => update({ startTime: event.target.value })} />
+          </label>
+          <label>
+            End
+            <input type="time" value={draft.endTime} onChange={event => update({ endTime: event.target.value })} />
+          </label>
+        </div>
+
+        <div className="calendar-form-row">
+          <label>
+            Type
+            <select value={draft.kind} onChange={event => update({ kind: event.target.value as EventKind })}>
+              {KIND_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label>
+            Color
+            <select value={draft.color} onChange={event => update({ color: event.target.value as EventColor })}>
+              {COLOR_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {activePeriod && activePeriod.goals.length > 0 && (
+          <>
+            <label>
+              Goal
+              <select value={draft.goalId} onChange={event => update({ goalId: event.target.value, tacticId: '' })}>
+                <option value="">No linked goal</option>
+                {activePeriod.goals.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}
+              </select>
+            </label>
+            {selectedGoal && selectedGoal.tactics.length > 0 && (
+              <label>
+                Tactic
+                <select value={draft.tacticId} onChange={event => update({ tacticId: event.target.value })}>
+                  <option value="">No linked tactic</option>
+                  {selectedGoal.tactics.map(tactic => <option key={tactic.id} value={tactic.id}>{tactic.title}</option>)}
+                </select>
+              </label>
+            )}
+          </>
+        )}
+
+        <div className="calendar-form-actions">
+          <button className="calendar-secondary-button" onClick={onCancel}>Cancel</button>
+          <button className="calendar-primary-button" onClick={onSubmit}>Create task</button>
+        </div>
+      </div>
     </div>
   );
 }
