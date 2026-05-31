@@ -1,6 +1,7 @@
 import { useStore } from '../lib/store';
 import { format, isWithinInterval } from 'date-fns';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { dateFromISO, getCurrentWeekNumber, periodPercentComplete, weeksInPeriod } from '../lib/period-utils';
 
 export function ProgressTracker() {
   const { periods, activePeriodId, todos } = useStore();
@@ -9,11 +10,9 @@ export function ProgressTracker() {
   if (!activePeriod) return null;
   
   const now = new Date();
-  const weeksPassed = Math.floor(
-    (now.getTime() - activePeriod.startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-  );
-  const weeksTotal = 12;
-  const expectedProgress = Math.min(Math.round((weeksPassed / weeksTotal) * 100), 100);
+  const weeksTotal = weeksInPeriod(activePeriod.startDate, activePeriod.endDate);
+  const currentWeek = getCurrentWeekNumber(activePeriod.startDate, activePeriod.endDate, now);
+  const expectedProgress = periodPercentComplete(activePeriod.startDate, activePeriod.endDate, now);
   
   const totalGoals = activePeriod.goals.length;
   const averageProgress = totalGoals > 0
@@ -32,7 +31,7 @@ export function ProgressTracker() {
   endOfWeek.setHours(23, 59, 59, 999);
   
   const weekTodos = todos.filter(t => {
-    const todoDate = new Date(t.date);
+    const todoDate = dateFromISO(t.date);
     return isWithinInterval(todoDate, { start: startOfWeek, end: endOfWeek });
   });
   
@@ -67,15 +66,17 @@ export function ProgressTracker() {
               style={{ width: `${averageProgress}%` }}
             >
               {/* Expected progress marker */}
-              <div
-                className="absolute top-0 bottom-0 w-0.5 bg-gray-400"
-                style={{ left: `${(expectedProgress / averageProgress) * 100}%` }}
-              />
+              {averageProgress > 0 && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-gray-400"
+                  style={{ left: `${Math.min(100, (expectedProgress / averageProgress) * 100)}%` }}
+                />
+              )}
             </div>
           </div>
           <div className="flex justify-between mt-1">
             <span className="text-xs text-gray-500">
-              Expected: {expectedProgress}% (Week {weeksPassed + 1} of {weeksTotal})
+              Expected: {expectedProgress}% (Week {currentWeek} of {weeksTotal})
             </span>
             <span
               className={`text-xs font-medium ${

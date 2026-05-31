@@ -2,17 +2,75 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-// Supabase config
-const SUPABASE_URL = "https://gfcdygyvqitdlqqxnuhw.supabase.co";
-const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmY2R5Z3l2cWl0ZGxxcXhudWh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDAzNjQ3NywiZXhwIjoyMDk1NjEyNDc3fQ.SUU-rOgBeq9PIavrh6gAgKb3wmVoRe4vbSyhtNkBa5A";
-const USER_ID = "cfabd772-ff87-4a35-bfbe-cb3fe818f08b"; // owner@daycraft.app
+function loadLocalEnv() {
+  for (const file of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "..", ".env")]) {
+    if (!existsSync(file)) continue;
+    const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+      const [key, ...valueParts] = trimmed.split("=");
+      if (!process.env[key]) {
+        process.env[key] = valueParts.join("=").replace(/^["']|["']$/g, "");
+      }
+    }
+  }
+}
+
+loadLocalEnv();
+
+// Supabase config. These are intentionally local-only; never commit service-role keys.
+const SUPABASE_URL = process.env.DAYCRAFT_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.DAYCRAFT_SUPABASE_SERVICE_KEY;
+const USER_ID = process.env.DAYCRAFT_USER_ID;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !USER_ID) {
+  throw new Error(
+    "Missing MCP config. Set DAYCRAFT_SUPABASE_URL, DAYCRAFT_SUPABASE_SERVICE_KEY, and DAYCRAFT_USER_ID in your environment or local .env."
+  );
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const server = new McpServer({
   name: "daycraft",
   version: "1.0.0",
+});
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toISODate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+server.tool("agent_help", "Show DayCraft MCP capabilities for AI agents", {}, async () => {
+  return {
+    content: [{
+      type: "text",
+      text: [
+        "DayCraft MCP is configured for local AI-agent operation.",
+        "",
+        "Common workflows:",
+        "- create_period: start a planning period, defaulting to 12 weeks unless endDate is supplied.",
+        "- update_period: change the active period date range.",
+        "- create_goal / add_tactic: maintain goals and execution tactics.",
+        "- add_todo / toggle_todo: log daily work without opening the app.",
+        "- save_weekly_score: record weekly execution and reflection notes.",
+        "- get_progress: summarize current progress for agent handoff.",
+        "",
+        "Safety:",
+        "- This server uses service-role credentials from local environment variables.",
+        "- Keep it local and only expose it to trusted agents."
+      ].join("\n")
+    }]
+  };
 });
 
 // Helper: get active period
@@ -47,11 +105,13 @@ server.tool("list_periods", "List all 12-week periods", {}, async () => {
 server.tool(
   "create_period",
   "Create a new 12-week period",
-  { startDate: z.string().describe("Start date in YYYY-MM-DD format") },
-  async ({ startDate }) => {
+  {
+    startDate: z.string().describe("Start date in YYYY-MM-DD format"),
+    endDate: z.string().optional().describe("Optional end date in YYYY-MM-DD format. Defaults to 12 weeks."),
+  },
+  async ({ startDate, endDate }) => {
     const start = new Date(startDate);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 83);
+    const end = endDate ? new Date(endDate) : addDays(start, 83);
 
     // Deactivate existing periods
     await supabase.from("periods").update({ active: false }).eq("user_id", USER_ID).eq("active", true);
@@ -70,6 +130,37 @@ server.tool(
     if (error) return { content: [{ type: "text", text: `Error: ${error.message}` }] };
 
     return { content: [{ type: "text", text: `✅ Created period: ${data.start_date} → ${data.end_date} (ID: ${data.id})` }] };
+  }
+);
+
+server.tool(
+  "update_period",
+  "Update the active period start and end dates",
+  {
+    startDate: z.string().describe("Start date in YYYY-MM-DD format"),
+    endDate: z.string().describe("End date in YYYY-MM-DD format"),
+  },
+  async ({ startDate, endDate }) => {
+    const period = await getActivePeriod();
+    if (!period) return { content: [{ type: "text", text: "No active period found." }] };
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) {
+      return { content: [{ type: "text", text: "Error: endDate must be on or after startDate." }] };
+    }
+
+    const { data, error } = await supabase
+      .from("periods")
+      .update({ start_date: toISODate(start), end_date: toISODate(end) })
+      .eq("id", period.id)
+      .eq("user_id", USER_ID)
+      .select()
+      .single();
+
+    if (error) return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+
+    return { content: [{ type: "text", text: `Updated period: ${data.start_date} -> ${data.end_date}` }] };
   }
 );
 

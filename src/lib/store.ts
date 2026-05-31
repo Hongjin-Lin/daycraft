@@ -2,14 +2,15 @@ import { create } from 'zustand';
 import { supabase } from './supabase';
 import { WeekPeriod, Goal, Todo, Tactic, WeeklyScore } from './types';
 import { DbPeriod, DbGoal, DbTactic, DbTodo, DbWeeklyScore } from './db-types';
+import { dateFromISO, endDateForWeeks, formatISODate } from './period-utils';
 
 // --- helpers to convert between DB rows and app types ---
 
 function toPeriod(row: DbPeriod, goals: Goal[]): WeekPeriod {
   return {
     id: row.id,
-    startDate: new Date(row.start_date),
-    endDate: new Date(row.end_date),
+    startDate: dateFromISO(row.start_date),
+    endDate: dateFromISO(row.end_date),
     goals,
     active: row.active,
   };
@@ -75,7 +76,8 @@ interface AppState {
   loadAll: () => Promise<void>;
   migrateFromLocalStorage: () => Promise<void>;
 
-  createPeriod: (startDate: Date) => Promise<void>;
+  createPeriod: (startDate: Date, endDate?: Date) => Promise<void>;
+  updatePeriod: (periodId: string, updates: Pick<WeekPeriod, 'startDate' | 'endDate'>) => Promise<void>;
 
   addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
   updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>;
@@ -240,10 +242,9 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   // ========== PERIOD ACTIONS ==========
-  createPeriod: async (startDate: Date) => {
+  createPeriod: async (startDate: Date, customEndDate?: Date) => {
     const userId = await getUserId();
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 83);
+    const endDate = customEndDate ?? endDateForWeeks(startDate, 12);
 
     const { data: existing } = await supabase
       .from('periods')
@@ -255,15 +256,15 @@ export const useStore = create<AppState>()((set, get) => ({
       await supabase
         .from('periods')
         .update({ active: false })
-        .in('id', existing.map(p => p.id));
+        .in('id', existing.map((p: { id: string }) => p.id));
     }
 
     const { data, error } = await supabase
       .from('periods')
       .insert({
         user_id: userId,
-        start_date: startDate.toISOString().slice(0, 10),
-        end_date: endDate.toISOString().slice(0, 10),
+        start_date: formatISODate(startDate),
+        end_date: formatISODate(endDate),
         active: true,
       })
       .select()
@@ -283,6 +284,26 @@ export const useStore = create<AppState>()((set, get) => ({
     set(state => ({
       periods: [...state.periods.map(p => ({ ...p, active: false })), newPeriod],
       activePeriodId: newPeriod.id,
+    }));
+  },
+
+  updatePeriod: async (periodId, updates) => {
+    const { error } = await supabase
+      .from('periods')
+      .update({
+        start_date: formatISODate(updates.startDate),
+        end_date: formatISODate(updates.endDate),
+      })
+      .eq('id', periodId);
+
+    if (error) throw error;
+
+    set(state => ({
+      periods: state.periods.map(p =>
+        p.id === periodId
+          ? { ...p, startDate: updates.startDate, endDate: updates.endDate }
+          : p
+      ),
     }));
   },
 

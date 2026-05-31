@@ -1,93 +1,121 @@
-import { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router';
-import { LayoutDashboard, Target, Calendar as CalendarIcon, ClipboardCheck, BarChart3, LogOut, Menu, X, Settings } from 'lucide-react';
+import { Link, Outlet, useLocation } from 'react-router';
+import {
+  BarChart3,
+  Bot,
+  Calendar as CalendarIcon,
+  ClipboardCheck,
+  LayoutDashboard,
+  LogOut,
+  Target,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useStore } from '../lib/store';
+import { daysInPeriod, weeksInPeriod } from '../lib/period-utils';
+
+const navItems = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/goals', label: 'Goals', icon: Target },
+  { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
+  { to: '/scorecard', label: 'Scorecard', icon: ClipboardCheck },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+];
 
 export function Layout() {
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const isActive = (path: string) => location.pathname === path;
+  const { periods, activePeriodId } = useStore();
+  const activePeriod = periods.find(p => p.id === activePeriodId);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setMenuOpen(false);
   };
 
-  const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/goals', label: 'Goals', icon: Target },
-    { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
-    { to: '/scorecard', label: 'Scorecard', icon: ClipboardCheck },
-    { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center h-14 gap-2">
-            {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0 mr-2">
-              <h1 className="font-bold text-lg text-gray-900">
-                <span className="text-blue-600">Day</span>Craft
-              </h1>
-            </div>
-
-            {/* Nav items - scrollable on mobile */}
-            <div className="flex-1 overflow-x-auto flex items-center gap-1 scrollbar-hide">
-              {navItems.map(item => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap shrink-0 ${
-                    isActive(item.to)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span className="font-medium hidden sm:inline">{item.label}</span>
-                </Link>
-              ))}
-            </div>
-
-            {/* Right hamburger menu */}
-            <div className="relative shrink-0">
-              <button
-                className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                onClick={() => setMenuOpen(!menuOpen)}
-              >
-                {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-
-              {/* Dropdown */}
-              {menuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-xs text-gray-400">Account</p>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
+    <div className="min-h-screen bg-gray-50 text-gray-950">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-gray-200 bg-white lg:flex lg:flex-col">
+        <div className="border-b border-gray-200 px-5 py-5">
+          <div className="text-xl font-semibold tracking-tight">
+            <span className="text-blue-600">Day</span>Craft
           </div>
+          <p className="mt-1 text-xs text-gray-500">Planning OS</p>
         </div>
-      </nav>
 
-      {/* Click outside to close menu */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-      )}
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {navItems.map(item => {
+            const active = location.pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950'
+                }`}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <Outlet />
+        <div className="border-t border-gray-200 p-4">
+          <div className="rounded-md border border-blue-100 bg-blue-50 p-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-blue-950">
+              <Bot className="h-4 w-4" />
+              Agent-ready
+            </div>
+            <p className="mt-1 text-xs leading-5 text-blue-900">MCP can log work in the background.</p>
+          </div>
+          {activePeriod && (
+            <div className="mt-3 rounded-md bg-gray-50 p-3 text-xs text-gray-600">
+              <div className="font-semibold text-gray-900">Active period</div>
+              <div className="mt-1">{weeksInPeriod(activePeriod.startDate, activePeriod.endDate)} weeks</div>
+              <div>{daysInPeriod(activePeriod.startDate, activePeriod.endDate)} days total</div>
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="mt-3 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-950"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        </div>
+      </aside>
+
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-3 py-3 backdrop-blur lg:hidden">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-lg font-semibold">
+            <span className="text-blue-600">Day</span>Craft
+          </div>
+          <button onClick={handleSignOut} className="rounded-md p-2 text-gray-500 hover:bg-gray-100">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto">
+          {navItems.map(item => {
+            const active = location.pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium ${
+                  active ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </header>
+
+      <main className="px-3 py-4 sm:px-6 lg:ml-64 lg:px-8 lg:py-8">
+        <div className="mx-auto max-w-7xl">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

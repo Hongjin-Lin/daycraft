@@ -5,22 +5,16 @@ import { supabase } from './lib/supabase';
 import { useStore } from './lib/store';
 import { AuthPage } from './components/AuthPage';
 import { UpdateChecker } from './components/UpdateChecker';
-import { Session } from '@supabase/supabase-js';
+import { AuthSession } from './lib/supabase';
 
 function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const loadAll = useStore(s => s.loadAll);
   const subscribeToChanges = useStore(s => s.subscribeToChanges);
   const loading = useStore(s => s.loading);
 
   useEffect(() => {
-    // Clear old localStorage data from previous version
-    const oldKey = '12-week-year-storage';
-    if (localStorage.getItem(oldKey)) {
-      localStorage.removeItem(oldKey);
-    }
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -34,13 +28,22 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
+
     if (session) {
       loadAll().then(() => {
-        const unsub = subscribeToChanges();
-        return unsub;
+        if (!cancelled) {
+          unsub = subscribeToChanges();
+        }
       });
     }
-  }, [session]);
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [session, loadAll, subscribeToChanges]);
 
   if (authLoading) {
     return (

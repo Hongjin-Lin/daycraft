@@ -56,12 +56,16 @@
       },
       "devDependencies": {
             "@types/node": "^20.10.0",
+            "@types/react": "^19.2.15",
+            "@types/react-dom": "^19.2.3",
             "@vitejs/plugin-react-swc": "^3.10.2",
             "typescript": "^6.0.3",
             "vite": "6.3.5"
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build"
+            "build": "vite build",
+            "typecheck": "tsc --noEmit",
+            "test:period": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\period-utils.test.ts"
       }
 }
