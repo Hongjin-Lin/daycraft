@@ -13,19 +13,25 @@ export function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const migrateFromLocalStorage = useStore(s => s.migrateFromLocalStorage);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNotice('');
 
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // After sign up, migrate any existing localStorage data
-        await migrateFromLocalStorage();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await migrateFromLocalStorage();
+        } else {
+          setNotice('Account created. Check your email to confirm it, then sign in.');
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -80,6 +86,12 @@ export function AuthPage() {
               </p>
             )}
 
+            {notice && (
+              <p className="text-sm text-green-700 bg-green-50 dark:bg-green-950 p-3 rounded-md">
+                {notice}
+              </p>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
               {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
@@ -90,7 +102,7 @@ export function AuthPage() {
               <button
                 type="button"
                 className="text-primary hover:underline font-medium"
-                onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
+                onClick={() => { setIsSignUp(!isSignUp); setError(''); setNotice(''); }}
               >
                 {isSignUp ? 'Sign In' : 'Sign Up'}
               </button>

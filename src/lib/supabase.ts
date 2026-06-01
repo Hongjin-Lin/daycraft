@@ -13,8 +13,8 @@ function getStoredSession(): AuthSession | null {
     const str = localStorage.getItem(STORAGE_KEY);
     if (!str) return null;
     const parsed = JSON.parse(str);
-    // Supabase stores it as { currentSession: {...}, expiresAt: ... }
-    return parsed?.currentSession ?? parsed;
+    // Support both our lightweight wrapper and common supabase-js storage shapes.
+    return parsed?.currentSession ?? parsed?.session ?? parsed;
   } catch {
     return null;
   }
@@ -82,29 +82,70 @@ class SupabaseAuth {
   private listeners: AuthChangeCallback[] = [];
   private session: AuthSession | null = null;
   private initialized = false;
+  private refreshPromise: Promise<AuthSession | null> | null = null;
 
   constructor() {
     this.session = getStoredSession();
     // Try to refresh on init if we have a session
-    if (this.session?.refresh_token) {
+    if (this.session?.refresh_token && this.isExpired(this.session)) {
       this.tryRefresh();
     }
   }
 
+  private buildSession(data: any): AuthSession {
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+      expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + data.expires_in,
+      token_type: data.token_type || 'bearer',
+      user: data.user,
+    };
+  }
+
+  private isExpired(session: AuthSession, leewaySeconds = 60) {
+    if (!session.expires_at) return false;
+    return session.expires_at <= Math.floor(Date.now() / 1000) + leewaySeconds;
+  }
+
+  private async refreshCurrentSession(): Promise<AuthSession | null> {
+    if (!this.session?.refresh_token) return null;
+    if (this.refreshPromise) return this.refreshPromise;
+
+    const refreshToken = this.session.refresh_token;
+    this.refreshPromise = refreshSession(refreshToken)
+      .then(({ data, error }) => {
+        if (error || !data?.access_token) {
+          this.session = null;
+          storeSession(null);
+          this.notify('SIGNED_OUT');
+          return null;
+        }
+
+        this.session = this.buildSession(data);
+        storeSession(this.session);
+        this.notify('TOKEN_REFRESHED');
+        return this.session;
+      })
+      .finally(() => {
+        this.refreshPromise = null;
+      });
+
+    return this.refreshPromise;
+  }
+
   private async tryRefresh() {
-    if (!this.session?.refresh_token) return;
-    const { data, error } = await refreshSession(this.session.refresh_token);
-    if (!error && data) {
-      this.session = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-        token_type: data.token_type || 'bearer',
-        user: data.user,
-      };
-      storeSession(this.session);
+    await this.refreshCurrentSession();
+  }
+
+  async getValidSession(): Promise<AuthSession | null> {
+    if (!this.session) {
+      this.session = getStoredSession();
     }
+    if (this.session && this.isExpired(this.session)) {
+      return this.refreshCurrentSession();
+    }
+    return this.session;
   }
 
   private notify(event: string) {
@@ -114,17 +155,20 @@ class SupabaseAuth {
   }
 
   async getSession(): Promise<{ data: { session: AuthSession | null } }> {
-    if (!this.session) {
-      this.session = getStoredSession();
-    }
+    await this.getValidSession();
     return { data: { session: this.session } };
   }
 
   async getUser(): Promise<{ data: { user: AuthUser | null } }> {
+    await this.getValidSession();
+    return { data: { user: this.session?.user ?? null } };
+  }
+
+  getCurrentSession(): AuthSession | null {
     if (!this.session) {
       this.session = getStoredSession();
     }
-    return { data: { user: this.session?.user ?? null } };
+    return this.session;
   }
 
   async signUp({ email, password }: { email: string; password: string }) {
@@ -132,14 +176,7 @@ class SupabaseAuth {
     if (error) return { data: null, error };
     // Supabase may return session directly or require confirmation
     if (data.access_token) {
-      this.session = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-        token_type: data.token_type || 'bearer',
-        user: data.user,
-      };
+      this.session = this.buildSession(data);
       storeSession(this.session);
       this.notify('SIGNED_IN');
     }
@@ -149,14 +186,7 @@ class SupabaseAuth {
   async signInWithPassword({ email, password }: { email: string; password: string }) {
     const { data, error } = await authRequest('/token?grant_type=password', { email, password });
     if (error) return { data: null, error };
-    this.session = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_in: data.expires_in,
-      expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-      token_type: data.token_type || 'bearer',
-      user: data.user,
-    };
+    this.session = this.buildSession(data);
     storeSession(this.session);
     this.notify('SIGNED_IN');
     return { data, error: null };
@@ -197,8 +227,8 @@ class SupabaseAuth {
 
 // --- DB API ---
 
-function getAuthHeaders(): Record<string, string> {
-  const session = getStoredSession();
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const session = await auth.getValidSession();
   return {
     'apikey': SUPABASE_ANON_KEY,
     'Content-Type': 'application/json',
@@ -289,7 +319,7 @@ class SupabaseQueryBuilder {
 
   async then(resolve: (result: { data: any; error: any }) => void, reject?: (err: any) => void) {
     try {
-      const headers = getAuthHeaders();
+      const headers = await getAuthHeaders();
       let url = this.buildUrl();
       let fetchOptions: RequestInit = { method: this.method, headers };
 
