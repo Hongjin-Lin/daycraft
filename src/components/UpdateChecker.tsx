@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { CURRENT_APP_VERSION } from '../lib/app-version';
-import { shouldShowUpdate, type VersionInfo } from '../lib/update-check';
-
-const VERSION_CHECK_URL = 'https://daycraft-six.vercel.app/version.json';
+import { fetchLatestVersionInfo, shouldShowUpdate, type VersionInfo } from '../lib/update-check';
 
 function isMobileUpdateSurface() {
   const isAndroid = /Android/i.test(navigator.userAgent);
@@ -12,12 +10,6 @@ function isMobileUpdateSurface() {
   const isIOSStandalone = Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
 
   return isAndroid || isMobileViewport || isStandalone || isIOSStandalone;
-}
-
-async function fetchVersionInfo(url: string): Promise<VersionInfo | null> {
-  const response = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
-  if (!response.ok) return null;
-  return response.json();
 }
 
 export function UpdateChecker() {
@@ -29,7 +21,7 @@ export function UpdateChecker() {
 
     const checkUpdate = async () => {
       try {
-        const remoteInfo = await fetchVersionInfo(VERSION_CHECK_URL);
+        const remoteInfo = await fetchLatestVersionInfo();
 
         if (shouldShowUpdate(CURRENT_APP_VERSION, remoteInfo)) {
           setUpdateInfo(remoteInfo);

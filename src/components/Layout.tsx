@@ -6,11 +6,14 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   LogOut,
+  RefreshCw,
   Target,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { daysInPeriod, weeksInPeriod } from '../lib/period-utils';
+import { CURRENT_APP_VERSION } from '../lib/app-version';
+import { fetchLatestVersionInfo, shouldShowUpdate } from '../lib/update-check';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,6 +28,19 @@ export function Layout() {
   const location = useLocation();
   const { periods, activePeriodId } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
+
+  const handleCheckUpdate = async () => {
+    try {
+      const remoteInfo = await fetchLatestVersionInfo();
+      if (shouldShowUpdate(CURRENT_APP_VERSION, remoteInfo) && remoteInfo?.apkUrl) {
+        window.open(remoteInfo.apkUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      window.alert(`DayCraft is up to date. Current version: ${CURRENT_APP_VERSION}`);
+    } catch {
+      window.alert('Could not check for updates. Please check your connection and try again.');
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -69,6 +85,13 @@ export function Layout() {
             </div>
           )}
           <button
+            onClick={handleCheckUpdate}
+            className="mt-3 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-950"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Check updates
+          </button>
+          <button
             onClick={handleSignOut}
             className="mt-3 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-950"
           >
@@ -83,9 +106,14 @@ export function Layout() {
           <div className="text-lg font-semibold">
             <span className="text-blue-600">Day</span>Craft
           </div>
-          <button onClick={handleSignOut} className="rounded-md p-2 text-gray-500 hover:bg-gray-100">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={handleCheckUpdate} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Check updates">
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button onClick={handleSignOut} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Sign out">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto">
           {navItems.map(item => {
