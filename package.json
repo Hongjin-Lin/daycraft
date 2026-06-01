@@ -66,6 +66,7 @@
             "dev": "vite",
             "build": "vite build",
             "typecheck": "tsc --noEmit",
+            "test:calendar": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\calendar-interaction.test.ts",
             "test:period": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\period-utils.test.ts"
       }
 }

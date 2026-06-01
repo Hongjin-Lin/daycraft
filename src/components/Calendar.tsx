@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
 import {
   addDays,
   addMonths,
@@ -27,6 +27,12 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import type { Goal, Todo } from '../lib/types';
+import {
+  LONG_PRESS_MS,
+  isDesktopSelectionPointer,
+  isTouchLongPressPointer,
+  movedBeyondTouchSlop,
+} from '../lib/calendar-interaction';
 
 type ViewMode = 'day' | 'week' | 'month';
 type EventKind = 'task' | 'focus' | 'meeting' | 'personal';
@@ -50,6 +56,16 @@ interface DragSelection {
   date: string;
   startMinutes: number;
   endMinutes: number;
+}
+
+interface DragStart {
+  date: string;
+  startMinutes: number;
+  pointerId: number;
+  originX: number;
+  originY: number;
+  mode: 'desktop' | 'touch';
+  active: boolean;
 }
 
 const META_STORAGE_KEY = 'daycraft-calendar-event-meta';
@@ -165,9 +181,10 @@ export function Calendar() {
   const [draft, setDraft] = useState<DraftEvent | null>(null);
   const [draftError, setDraftError] = useState('');
   const [draftSaving, setDraftSaving] = useState(false);
-  const [dragStart, setDragStart] = useState<{ date: string; startMinutes: number; pointerId: number } | null>(null);
+  const [dragStart, setDragStart] = useState<DragStart | null>(null);
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [eventMeta, setEventMeta] = useState<Record<string, CalendarEventMeta>>(loadEventMeta);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { periods, activePeriodId, todos, addTodo, toggleTodo, deleteTodo } = useStore();
   const activePeriod = periods.find(period => period.id === activePeriodId);
@@ -221,20 +238,83 @@ export function Calendar() {
     });
   };
 
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const releasePointerCapture = (element: HTMLElement, pointerId: number) => {
+    if (element.hasPointerCapture(pointerId)) {
+      element.releasePointerCapture(pointerId);
+    }
+  };
+
   const handleColumnPointerDown = (date: string, event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
     const startMinutes = minutesFromPointer(event.currentTarget, event.clientY);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDragStart({ date, startMinutes, pointerId: event.pointerId });
-    setDragSelection({
-      date,
-      startMinutes,
-      endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
-    });
+
+    if (isDesktopSelectionPointer(event.pointerType, event.button)) {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setDragStart({
+        date,
+        startMinutes,
+        pointerId: event.pointerId,
+        originX: event.clientX,
+        originY: event.clientY,
+        mode: 'desktop',
+        active: true,
+      });
+      setDragSelection({
+        date,
+        startMinutes,
+        endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
+      });
+      return;
+    }
+
+    if (isTouchLongPressPointer(event.pointerType, event.button)) {
+      clearLongPressTimer();
+      const pointerId = event.pointerId;
+      const target = event.currentTarget;
+      setDragStart({
+        date,
+        startMinutes,
+        pointerId,
+        originX: event.clientX,
+        originY: event.clientY,
+        mode: 'touch',
+        active: false,
+      });
+      longPressTimerRef.current = setTimeout(() => {
+        target.setPointerCapture(pointerId);
+        setDragStart(current => (
+          current?.pointerId === pointerId
+            ? { ...current, active: true }
+            : current
+        ));
+        setDragSelection({
+          date,
+          startMinutes,
+          endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
+        });
+        longPressTimerRef.current = null;
+      }, LONG_PRESS_MS);
+    }
   };
 
   const handleColumnPointerMove = (date: string, event: PointerEvent<HTMLDivElement>) => {
     if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
+    if (dragStart.mode === 'touch' && !dragStart.active) {
+      if (movedBeyondTouchSlop(dragStart.originX, dragStart.originY, event.clientX, event.clientY)) {
+        clearLongPressTimer();
+        setDragStart(null);
+      }
+      return;
+    }
+
+    event.preventDefault();
     const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
     setDragSelection({
       date,
@@ -244,23 +324,48 @@ export function Calendar() {
 
   const handleColumnPointerUp = (date: string, event: PointerEvent<HTMLDivElement>) => {
     if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
+    clearLongPressTimer();
+
+    if (dragStart.mode === 'touch' && !dragStart.active) {
+      setDragStart(null);
+      return;
+    }
+
     const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
     const selection = normalizeSelection(dragStart.startMinutes, currentMinutes, true);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    openDraft(date, formatMinutesAsTime(selection.startMinutes), formatMinutesAsTime(selection.endMinutes));
+    releasePointerCapture(event.currentTarget, event.pointerId);
     setDragStart(null);
-    setDragSelection(null);
+
+    if (dragStart.mode === 'touch') {
+      openDraft(date, formatMinutesAsTime(selection.startMinutes), formatMinutesAsTime(selection.endMinutes));
+      setDragSelection(null);
+      return;
+    }
+
+    setDragSelection({ date, ...selection });
   };
 
   const handleColumnPointerCancel = (date: string, event: PointerEvent<HTMLDivElement>) => {
     if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    clearLongPressTimer();
+    releasePointerCapture(event.currentTarget, event.pointerId);
     setDragStart(null);
+  };
+
+  const handleColumnContextMenu = (date: string, event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const selection = dragSelection?.date === date
+      ? dragSelection
+      : normalizeSelection(
+        minutesFromPointer(event.currentTarget, event.clientY),
+        minutesFromPointer(event.currentTarget, event.clientY),
+        true
+      );
+
+    openDraft(date, formatMinutesAsTime(selection.startMinutes), formatMinutesAsTime(selection.endMinutes));
     setDragSelection(null);
+    setDragStart(null);
+    clearLongPressTimer();
   };
 
   const handleSubmitDraft = async () => {
@@ -342,7 +447,7 @@ export function Calendar() {
           </button>
           <div>
             <h3>{title}</h3>
-            <p>{viewMode === 'month' ? 'Click a day to add a task' : 'Click or drag in the time grid to create an event'}</p>
+            <p>{viewMode === 'month' ? 'Click a day to add a task' : 'Drag to select a block. Right-click on desktop, or long-press on touch, to create.'}</p>
           </div>
           <button className="calendar-icon-button" onClick={() => shiftCalendar(1)} aria-label="Next period">
             <ChevronRight className="h-4 w-4" />
@@ -369,6 +474,7 @@ export function Calendar() {
             onPointerMove={handleColumnPointerMove}
             onPointerUp={handleColumnPointerUp}
             onPointerCancel={handleColumnPointerCancel}
+            onContextMenu={handleColumnContextMenu}
             onToggle={toggleTodo}
             onDelete={handleDeleteTodo}
           />
@@ -424,6 +530,7 @@ function TimeGrid({
   onPointerMove,
   onPointerUp,
   onPointerCancel,
+  onContextMenu,
   onToggle,
   onDelete,
 }: {
@@ -435,6 +542,7 @@ function TimeGrid({
   onPointerMove: (date: string, event: PointerEvent<HTMLDivElement>) => void;
   onPointerUp: (date: string, event: PointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (date: string, event: PointerEvent<HTMLDivElement>) => void;
+  onContextMenu: (date: string, event: MouseEvent<HTMLDivElement>) => void;
   onToggle: (todoId: string) => void;
   onDelete: (todoId: string) => void;
 }) {
@@ -474,6 +582,7 @@ function TimeGrid({
             onPointerMove={(event) => onPointerMove(date, event)}
             onPointerUp={(event) => onPointerUp(date, event)}
             onPointerCancel={(event) => onPointerCancel(date, event)}
+            onContextMenu={(event) => onContextMenu(date, event)}
           >
             {selection && (
               <div
@@ -584,6 +693,7 @@ function CalendarEvent({
       style={style}
       onPointerDown={event => event.stopPropagation()}
       onPointerUp={event => event.stopPropagation()}
+      onContextMenu={event => event.stopPropagation()}
     >
       <button
         className="calendar-event-check"
