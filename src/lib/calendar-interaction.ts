@@ -12,3 +12,12 @@ export function isTouchLongPressPointer(pointerType: string, button: number) {
 export function movedBeyondTouchSlop(startX: number, startY: number, currentX: number, currentY: number) {
   return Math.abs(currentX - startX) > TOUCH_MOVE_CANCEL_PX || Math.abs(currentY - startY) > TOUCH_MOVE_CANCEL_PX;
 }
+
+export function fixedDurationSelection(startMinutes: number, durationMinutes: number, minMinutes: number, maxMinutes: number) {
+  const latestStart = maxMinutes - durationMinutes;
+  const clampedStart = Math.min(latestStart, Math.max(minMinutes, startMinutes));
+  return {
+    startMinutes: clampedStart,
+    endMinutes: clampedStart + durationMinutes,
+  };
+}

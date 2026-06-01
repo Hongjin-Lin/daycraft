@@ -29,6 +29,7 @@ import { useStore } from '../lib/store';
 import type { Goal, Todo } from '../lib/types';
 import {
   LONG_PRESS_MS,
+  fixedDurationSelection,
   isDesktopSelectionPointer,
   isTouchLongPressPointer,
   movedBeyondTouchSlop,
@@ -296,8 +297,7 @@ export function Calendar() {
         ));
         setDragSelection({
           date,
-          startMinutes,
-          endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
+          ...fixedDurationSelection(startMinutes, CLICK_DEFAULT_MINUTES, DAY_START_MINUTES, DAY_END_MINUTES),
         });
         longPressTimerRef.current = null;
       }, LONG_PRESS_MS);
@@ -316,6 +316,14 @@ export function Calendar() {
 
     event.preventDefault();
     const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
+    if (dragStart.mode === 'touch') {
+      setDragSelection({
+        date,
+        ...fixedDurationSelection(currentMinutes, CLICK_DEFAULT_MINUTES, DAY_START_MINUTES, DAY_END_MINUTES),
+      });
+      return;
+    }
+
     setDragSelection({
       date,
       ...normalizeSelection(dragStart.startMinutes, currentMinutes, false),
@@ -332,7 +340,9 @@ export function Calendar() {
     }
 
     const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
-    const selection = normalizeSelection(dragStart.startMinutes, currentMinutes, true);
+    const selection = dragStart.mode === 'touch'
+      ? fixedDurationSelection(currentMinutes, CLICK_DEFAULT_MINUTES, DAY_START_MINUTES, DAY_END_MINUTES)
+      : normalizeSelection(dragStart.startMinutes, currentMinutes, true);
     releasePointerCapture(event.currentTarget, event.pointerId);
     setDragStart(null);
 
