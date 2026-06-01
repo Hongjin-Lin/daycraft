@@ -3,6 +3,8 @@ export interface VersionInfo {
   apkUrl: string;
 }
 
+export const VERSION_CHECK_URL = 'https://daycraft-six.vercel.app/version.json';
+
 export function compareVersions(a: string, b: string) {
   const aParts = a.split('.').map(part => Number.parseInt(part, 10) || 0);
   const bParts = b.split('.').map(part => Number.parseInt(part, 10) || 0);
@@ -22,4 +24,10 @@ export function shouldShowUpdate(currentVersion: string, remoteInfo: VersionInfo
     remoteInfo.apkUrl &&
     compareVersions(remoteInfo.version, currentVersion) > 0
   );
+}
+
+export async function fetchLatestVersionInfo(): Promise<VersionInfo | null> {
+  const response = await fetch(`${VERSION_CHECK_URL}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) return null;
+  return response.json();
 }
