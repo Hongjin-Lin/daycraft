@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 
-const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/Hongjin-Lin/daycraft/master/public/version.json';
+const VERSION_CHECK_URL = 'https://daycraft-six.vercel.app/version.json';
 const LOCAL_VERSION_URL = '/version.json';
 
 interface VersionInfo {
