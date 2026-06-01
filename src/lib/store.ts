@@ -78,6 +78,8 @@ interface AppState {
 
   createPeriod: (startDate: Date, endDate?: Date) => Promise<void>;
   updatePeriod: (periodId: string, updates: Pick<WeekPeriod, 'startDate' | 'endDate'>) => Promise<void>;
+  activatePeriod: (periodId: string) => Promise<void>;
+  deletePeriod: (periodId: string) => Promise<void>;
 
   addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
   updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>;
@@ -305,6 +307,97 @@ export const useStore = create<AppState>()((set, get) => ({
           : p
       ),
     }));
+  },
+
+  activatePeriod: async (periodId) => {
+    const userId = await getUserId();
+    const target = get().periods.find(p => p.id === periodId);
+    if (!target) throw new Error('Period not found');
+
+    const { error: deactivateError } = await supabase
+      .from('periods')
+      .update({ active: false })
+      .eq('user_id', userId)
+      .eq('active', true);
+    if (deactivateError) throw deactivateError;
+
+    const { error: activateError } = await supabase
+      .from('periods')
+      .update({ active: true })
+      .eq('id', periodId)
+      .eq('user_id', userId);
+    if (activateError) throw activateError;
+
+    set(state => ({
+      periods: state.periods.map(p => ({ ...p, active: p.id === periodId })),
+      activePeriodId: periodId,
+    }));
+  },
+
+  deletePeriod: async (periodId) => {
+    const userId = await getUserId();
+    const state = get();
+    const period = state.periods.find(p => p.id === periodId);
+    if (!period) throw new Error('Period not found');
+
+    const goalIds = period.goals.map(g => g.id);
+    const tacticIds = period.goals.flatMap(g => g.tactics.map(t => t.id));
+
+    if (goalIds.length > 0) {
+      const { error } = await supabase.from('todos').delete().in('goal_id', goalIds).eq('user_id', userId);
+      if (error) throw error;
+    }
+
+    if (tacticIds.length > 0) {
+      const { error } = await supabase.from('todos').delete().in('tactic_id', tacticIds).eq('user_id', userId);
+      if (error) throw error;
+    }
+
+    const { error: scoresError } = await supabase
+      .from('weekly_scores')
+      .delete()
+      .eq('period_id', periodId)
+      .eq('user_id', userId);
+    if (scoresError) throw scoresError;
+
+    if (goalIds.length > 0) {
+      const { error } = await supabase.from('tactics').delete().in('goal_id', goalIds).eq('user_id', userId);
+      if (error) throw error;
+    }
+
+    if (goalIds.length > 0) {
+      const { error } = await supabase.from('goals').delete().in('id', goalIds).eq('user_id', userId);
+      if (error) throw error;
+    }
+
+    const { error: periodError } = await supabase
+      .from('periods')
+      .delete()
+      .eq('id', periodId)
+      .eq('user_id', userId);
+    if (periodError) throw periodError;
+
+    let remainingPeriods = state.periods.filter(p => p.id !== periodId);
+    let activePeriodId = state.activePeriodId === periodId
+      ? (remainingPeriods[0]?.id ?? null)
+      : state.activePeriodId;
+
+    if (state.activePeriodId === periodId && activePeriodId) {
+      const { error } = await supabase
+        .from('periods')
+        .update({ active: true })
+        .eq('id', activePeriodId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      remainingPeriods = remainingPeriods.map(p => ({ ...p, active: p.id === activePeriodId }));
+    }
+
+    set({
+      periods: remainingPeriods,
+      activePeriodId,
+      weeklyScores: state.weeklyScores.filter(s => s.periodId !== periodId),
+      todos: state.todos.filter(t => !goalIds.includes(t.goalId ?? '') && !tacticIds.includes(t.tacticId ?? '')),
+    });
   },
 
   // ========== GOAL ACTIONS ==========

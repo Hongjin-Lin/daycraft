@@ -60,6 +60,7 @@ server.tool("agent_help", "Show DayCraft MCP capabilities for AI agents", {}, as
         "Common workflows:",
         "- create_period: start a planning period, defaulting to 12 weeks unless endDate is supplied.",
         "- update_period: change the active period date range.",
+        "- activate_period / delete_period: manage saved historical periods.",
         "- create_goal / add_tactic: maintain goals and execution tactics.",
         "- add_todo / toggle_todo: log daily work without opening the app.",
         "- save_weekly_score: record weekly execution and reflection notes.",
@@ -82,6 +83,76 @@ async function getActivePeriod() {
     .eq("active", true)
     .single();
   return data;
+}
+
+async function deletePeriodData(periodId: string) {
+  const { data: goals, error: goalsError } = await supabase
+    .from("goals")
+    .select("id")
+    .eq("user_id", USER_ID)
+    .eq("period_id", periodId);
+  if (goalsError) throw goalsError;
+
+  const goalIds = (goals || []).map((g: any) => g.id);
+  const tacticIds: string[] = [];
+
+  if (goalIds.length > 0) {
+    const { data: tactics, error: tacticsError } = await supabase
+      .from("tactics")
+      .select("id")
+      .eq("user_id", USER_ID)
+      .in("goal_id", goalIds);
+    if (tacticsError) throw tacticsError;
+    tacticIds.push(...(tactics || []).map((t: any) => t.id));
+
+    const { error: goalTodoError } = await supabase
+      .from("todos")
+      .delete()
+      .eq("user_id", USER_ID)
+      .in("goal_id", goalIds);
+    if (goalTodoError) throw goalTodoError;
+  }
+
+  if (tacticIds.length > 0) {
+    const { error: tacticTodoError } = await supabase
+      .from("todos")
+      .delete()
+      .eq("user_id", USER_ID)
+      .in("tactic_id", tacticIds);
+    if (tacticTodoError) throw tacticTodoError;
+  }
+
+  const { error: scoresError } = await supabase
+    .from("weekly_scores")
+    .delete()
+    .eq("user_id", USER_ID)
+    .eq("period_id", periodId);
+  if (scoresError) throw scoresError;
+
+  if (goalIds.length > 0) {
+    const { error: tacticsDeleteError } = await supabase
+      .from("tactics")
+      .delete()
+      .eq("user_id", USER_ID)
+      .in("goal_id", goalIds);
+    if (tacticsDeleteError) throw tacticsDeleteError;
+
+    const { error: goalsDeleteError } = await supabase
+      .from("goals")
+      .delete()
+      .eq("user_id", USER_ID)
+      .in("id", goalIds);
+    if (goalsDeleteError) throw goalsDeleteError;
+  }
+
+  const { error: periodError } = await supabase
+    .from("periods")
+    .delete()
+    .eq("user_id", USER_ID)
+    .eq("id", periodId);
+  if (periodError) throw periodError;
+
+  return { goalCount: goalIds.length, tacticCount: tacticIds.length };
 }
 
 // ===== PERIODS =====
@@ -161,6 +232,89 @@ server.tool(
     if (error) return { content: [{ type: "text", text: `Error: ${error.message}` }] };
 
     return { content: [{ type: "text", text: `Updated period: ${data.start_date} -> ${data.end_date}` }] };
+  }
+);
+
+server.tool(
+  "activate_period",
+  "Make a saved period active",
+  {
+    periodId: z.string().describe("Period ID"),
+  },
+  async ({ periodId }) => {
+    const { data: target, error: targetError } = await supabase
+      .from("periods")
+      .select("id")
+      .eq("user_id", USER_ID)
+      .eq("id", periodId)
+      .single();
+    if (targetError || !target) return { content: [{ type: "text", text: "Period not found." }] };
+
+    const { error: deactivateError } = await supabase
+      .from("periods")
+      .update({ active: false })
+      .eq("user_id", USER_ID)
+      .eq("active", true);
+    if (deactivateError) return { content: [{ type: "text", text: `Error: ${deactivateError.message}` }] };
+
+    const { error: activateError } = await supabase
+      .from("periods")
+      .update({ active: true })
+      .eq("user_id", USER_ID)
+      .eq("id", periodId);
+    if (activateError) return { content: [{ type: "text", text: `Error: ${activateError.message}` }] };
+
+    return { content: [{ type: "text", text: `Activated period: ${periodId}` }] };
+  }
+);
+
+server.tool(
+  "delete_period",
+  "Delete a period and its goals, tactics, weekly scores, and linked todos",
+  {
+    periodId: z.string().describe("Period ID"),
+  },
+  async ({ periodId }) => {
+    const { data: period, error: periodLookupError } = await supabase
+      .from("periods")
+      .select("*")
+      .eq("user_id", USER_ID)
+      .eq("id", periodId)
+      .single();
+    if (periodLookupError || !period) return { content: [{ type: "text", text: "Period not found." }] };
+
+    try {
+      const deleted = await deletePeriodData(periodId);
+
+      if (period.active) {
+        const { data: nextPeriod, error: nextError } = await supabase
+          .from("periods")
+          .select("id")
+          .eq("user_id", USER_ID)
+          .order("start_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (nextError) throw nextError;
+        if (nextPeriod) {
+          const { error: activateError } = await supabase
+            .from("periods")
+            .update({ active: true })
+            .eq("user_id", USER_ID)
+            .eq("id", nextPeriod.id);
+          if (activateError) throw activateError;
+        }
+      }
+
+      return {
+        content: [{
+          type: "text",
+          text: `Deleted period ${periodId} (${deleted.goalCount} goals, ${deleted.tacticCount} tactics).`,
+        }],
+      };
+    } catch (error: any) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+    }
   }
 );
 
