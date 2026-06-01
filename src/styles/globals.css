@@ -769,9 +769,10 @@ html {
       #fff calc(var(--calendar-half-hour-height) - 1px),
       #f3f4f6 calc(var(--calendar-half-hour-height) - 1px),
       #f3f4f6 var(--calendar-half-hour-height)
-    );
+  );
   cursor: crosshair;
-  touch-action: none;
+  touch-action: pan-x pan-y;
+  user-select: none;
 }
 
 .calendar-day-column:hover {
