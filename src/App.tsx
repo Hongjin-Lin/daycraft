@@ -47,21 +47,32 @@ function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="text-muted-foreground text-lg">Loading...</div>
-      </div>
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="text-muted-foreground text-lg">Loading...</div>
+        </div>
+        <UpdateChecker />
+      </>
     );
   }
 
   if (!session) {
-    return <AuthPage />;
+    return (
+      <>
+        <AuthPage />
+        <UpdateChecker />
+      </>
+    );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="text-muted-foreground text-lg">Syncing data...</div>
-      </div>
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="text-muted-foreground text-lg">Syncing data...</div>
+        </div>
+        <UpdateChecker />
+      </>
     );
   }
 
