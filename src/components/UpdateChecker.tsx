@@ -1,26 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
+import { CURRENT_APP_VERSION } from '../lib/app-version';
+import { shouldShowUpdate, type VersionInfo } from '../lib/update-check';
 
 const VERSION_CHECK_URL = 'https://daycraft-six.vercel.app/version.json';
-const LOCAL_VERSION_URL = '/version.json';
-
-interface VersionInfo {
-  version: string;
-  apkUrl: string;
-}
-
-function compareVersions(a: string, b: string) {
-  const aParts = a.split('.').map(part => Number.parseInt(part, 10) || 0);
-  const bParts = b.split('.').map(part => Number.parseInt(part, 10) || 0);
-  const length = Math.max(aParts.length, bParts.length);
-
-  for (let index = 0; index < length; index += 1) {
-    const diff = (aParts[index] ?? 0) - (bParts[index] ?? 0);
-    if (diff !== 0) return diff;
-  }
-
-  return 0;
-}
 
 function isMobileUpdateSurface() {
   const isAndroid = /Android/i.test(navigator.userAgent);
@@ -46,17 +29,9 @@ export function UpdateChecker() {
 
     const checkUpdate = async () => {
       try {
-        const [localInfo, remoteInfo] = await Promise.all([
-          fetchVersionInfo(LOCAL_VERSION_URL),
-          fetchVersionInfo(VERSION_CHECK_URL),
-        ]);
+        const remoteInfo = await fetchVersionInfo(VERSION_CHECK_URL);
 
-        if (
-          localInfo?.version &&
-          remoteInfo?.version &&
-          remoteInfo.apkUrl &&
-          compareVersions(remoteInfo.version, localInfo.version) > 0
-        ) {
+        if (shouldShowUpdate(CURRENT_APP_VERSION, remoteInfo)) {
           setUpdateInfo(remoteInfo);
         }
       } catch {
