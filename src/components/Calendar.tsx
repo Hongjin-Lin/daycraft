@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties, type PointerEvent } from 'react';
 import {
   addDays,
   addMonths,
@@ -14,7 +14,6 @@ import {
   subWeeks,
 } from 'date-fns';
 import {
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -47,8 +46,19 @@ interface DraftEvent extends CalendarEventMeta {
   tacticId: string;
 }
 
+interface DragSelection {
+  date: string;
+  startMinutes: number;
+  endMinutes: number;
+}
+
 const META_STORAGE_KEY = 'daycraft-calendar-event-meta';
 const HOURS = Array.from({ length: 17 }, (_, index) => index + 6);
+const DAY_START_MINUTES = 6 * 60;
+const DAY_END_MINUTES = 23 * 60;
+const DAY_DURATION_MINUTES = DAY_END_MINUTES - DAY_START_MINUTES;
+const SLOT_MINUTES = 30;
+const CLICK_DEFAULT_MINUTES = 60;
 const KIND_OPTIONS: Array<{ value: EventKind; label: string }> = [
   { value: 'task', label: 'Task' },
   { value: 'focus', label: 'Focus' },
@@ -72,9 +82,63 @@ function timeAt(hour: number) {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
+function parseTimeToMinutes(time: string) {
+  const [hour, minute] = time.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function formatMinutesAsTime(minutes: number) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function clampMinutes(minutes: number, min = DAY_START_MINUTES, max = DAY_END_MINUTES) {
+  return Math.min(max, Math.max(min, minutes));
+}
+
+function snapToSlot(minutes: number) {
+  return Math.round(minutes / SLOT_MINUTES) * SLOT_MINUTES;
+}
+
+function minutesFromPointer(element: HTMLElement, clientY: number, allowDayEnd = false) {
+  const rect = element.getBoundingClientRect();
+  const y = Math.min(rect.height, Math.max(0, clientY - rect.top));
+  const rawMinutes = DAY_START_MINUTES + (y / rect.height) * DAY_DURATION_MINUTES;
+  const snapped = snapToSlot(rawMinutes);
+  return clampMinutes(snapped, DAY_START_MINUTES, allowDayEnd ? DAY_END_MINUTES : DAY_END_MINUTES - SLOT_MINUTES);
+}
+
+function normalizeSelection(startMinutes: number, currentMinutes: number, defaultToOneHour: boolean) {
+  if (defaultToOneHour && Math.abs(currentMinutes - startMinutes) < SLOT_MINUTES) {
+    return {
+      startMinutes,
+      endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
+    };
+  }
+
+  const start = Math.min(startMinutes, currentMinutes);
+  const end = Math.max(startMinutes, currentMinutes);
+  return {
+    startMinutes: start,
+    endMinutes: Math.max(start + SLOT_MINUTES, end),
+  };
+}
+
+function eventPosition(meta: CalendarEventMeta): CSSProperties {
+  const start = clampMinutes(parseTimeToMinutes(meta.startTime));
+  const end = clampMinutes(parseTimeToMinutes(meta.endTime), start + SLOT_MINUTES, DAY_END_MINUTES);
+  const top = ((start - DAY_START_MINUTES) / DAY_DURATION_MINUTES) * 100;
+  const height = ((end - start) / DAY_DURATION_MINUTES) * 100;
+
+  return {
+    top: `${top}%`,
+    height: `${height}%`,
+  };
+}
+
 function addHour(time: string) {
-  const hour = Math.min(23, Number(time.slice(0, 2)) + 1);
-  return timeAt(hour);
+  return formatMinutesAsTime(clampMinutes(parseTimeToMinutes(time) + CLICK_DEFAULT_MINUTES));
 }
 
 function loadEventMeta(): Record<string, CalendarEventMeta> {
@@ -99,7 +163,10 @@ export function Calendar() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draft, setDraft] = useState<DraftEvent | null>(null);
-  const [dragStart, setDragStart] = useState<{ date: string; hour: number } | null>(null);
+  const [draftError, setDraftError] = useState('');
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [dragStart, setDragStart] = useState<{ date: string; startMinutes: number; pointerId: number } | null>(null);
+  const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [eventMeta, setEventMeta] = useState<Record<string, CalendarEventMeta>>(loadEventMeta);
 
   const { periods, activePeriodId, todos, addTodo, toggleTodo, deleteTodo } = useStore();
@@ -140,6 +207,8 @@ export function Calendar() {
   };
 
   const openDraft = (date: string, startTime = '09:00', endTime = '10:00') => {
+    setDraftError('');
+    setDraftSaving(false);
     setDraft({
       title: '',
       date,
@@ -152,38 +221,85 @@ export function Calendar() {
     });
   };
 
-  const handleSlotPointerUp = (date: string, hour: number) => {
-    if (dragStart && dragStart.date === date) {
-      const start = Math.min(dragStart.hour, hour);
-      const end = Math.max(dragStart.hour, hour) + 1;
-      openDraft(date, timeAt(start), timeAt(end));
-    } else {
-      openDraft(date, timeAt(hour), timeAt(hour + 1));
+  const handleColumnPointerDown = (date: string, event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const startMinutes = minutesFromPointer(event.currentTarget, event.clientY);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragStart({ date, startMinutes, pointerId: event.pointerId });
+    setDragSelection({
+      date,
+      startMinutes,
+      endMinutes: clampMinutes(startMinutes + CLICK_DEFAULT_MINUTES),
+    });
+  };
+
+  const handleColumnPointerMove = (date: string, event: PointerEvent<HTMLDivElement>) => {
+    if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
+    const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
+    setDragSelection({
+      date,
+      ...normalizeSelection(dragStart.startMinutes, currentMinutes, false),
+    });
+  };
+
+  const handleColumnPointerUp = (date: string, event: PointerEvent<HTMLDivElement>) => {
+    if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
+    const currentMinutes = minutesFromPointer(event.currentTarget, event.clientY, true);
+    const selection = normalizeSelection(dragStart.startMinutes, currentMinutes, true);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    openDraft(date, formatMinutesAsTime(selection.startMinutes), formatMinutesAsTime(selection.endMinutes));
+    setDragStart(null);
+    setDragSelection(null);
+  };
+
+  const handleColumnPointerCancel = (date: string, event: PointerEvent<HTMLDivElement>) => {
+    if (!dragStart || dragStart.date !== date || dragStart.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setDragStart(null);
+    setDragSelection(null);
   };
 
   const handleSubmitDraft = async () => {
-    if (!draft || !draft.title.trim()) return;
+    if (!draft || draftSaving) return;
+    if (!draft.title.trim()) {
+      setDraftError('Add a title before creating the task.');
+      return;
+    }
 
-    const todo = await addTodo({
-      title: draft.title.trim(),
-      date: draft.date,
-      completed: false,
-      goalId: draft.goalId || undefined,
-      tacticId: draft.tacticId || undefined,
-    });
+    setDraftSaving(true);
+    setDraftError('');
 
-    persistMeta({
-      ...eventMeta,
-      [todo.id]: {
-        startTime: draft.startTime,
-        endTime: draft.endTime,
-        kind: draft.kind,
-        color: draft.color,
-      },
-    });
-    setDraft(null);
+    try {
+      const todo = await addTodo({
+        title: draft.title.trim(),
+        date: draft.date,
+        completed: false,
+        goalId: draft.goalId || undefined,
+        tacticId: draft.tacticId || undefined,
+      });
+
+      persistMeta({
+        ...eventMeta,
+        [todo.id]: {
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+          kind: draft.kind,
+          color: draft.color,
+        },
+      });
+      setDraft(null);
+    } catch (error: any) {
+      const message = error?.message === 'Not authenticated'
+        ? 'Your session expired. Please sign in again.'
+        : error?.message || 'Could not create the task. Check your connection and sign-in status.';
+      setDraftError(message);
+    } finally {
+      setDraftSaving(false);
+    }
   };
 
   const handleDeleteTodo = async (todoId: string) => {
@@ -248,9 +364,11 @@ export function Calendar() {
             days={visibleDays}
             todosByDate={todosByDate}
             eventMeta={eventMeta}
-            onPointerDown={(date, hour) => setDragStart({ date, hour })}
-            onPointerUp={handleSlotPointerUp}
-            onCreate={openDraft}
+            dragSelection={dragSelection}
+            onPointerDown={handleColumnPointerDown}
+            onPointerMove={handleColumnPointerMove}
+            onPointerUp={handleColumnPointerUp}
+            onPointerCancel={handleColumnPointerCancel}
             onToggle={toggleTodo}
             onDelete={handleDeleteTodo}
           />
@@ -260,10 +378,18 @@ export function Calendar() {
       {draft && (
         <EventDraftPanel
           draft={draft}
+          error={draftError}
+          saving={draftSaving}
           activePeriod={activePeriod}
-          onChange={setDraft}
+          onChange={(nextDraft) => {
+            setDraftError('');
+            setDraft(nextDraft);
+          }}
           onSubmit={handleSubmitDraft}
-          onCancel={() => setDraft(null)}
+          onCancel={() => {
+            setDraftError('');
+            setDraft(null);
+          }}
         />
       )}
     </div>
@@ -293,18 +419,22 @@ function TimeGrid({
   days,
   todosByDate,
   eventMeta,
+  dragSelection,
   onPointerDown,
+  onPointerMove,
   onPointerUp,
-  onCreate,
+  onPointerCancel,
   onToggle,
   onDelete,
 }: {
   days: Date[];
   todosByDate: Map<string, Todo[]>;
   eventMeta: Record<string, CalendarEventMeta>;
-  onPointerDown: (date: string, hour: number) => void;
-  onPointerUp: (date: string, hour: number) => void;
-  onCreate: (date: string, startTime?: string, endTime?: string) => void;
+  dragSelection: DragSelection | null;
+  onPointerDown: (date: string, event: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (date: string, event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (date: string, event: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: (date: string, event: PointerEvent<HTMLDivElement>) => void;
   onToggle: (todoId: string) => void;
   onDelete: (todoId: string) => void;
 }) {
@@ -321,42 +451,55 @@ function TimeGrid({
         );
       })}
 
-      {HOURS.map(hour => (
-        <div key={`time-${hour}`} className="calendar-hour-label">
-          {timeAt(hour)}
-        </div>
-      )).flatMap((timeLabel, hourIndex) => {
-        const hour = HOURS[hourIndex];
-        return [
-          timeLabel,
-          ...days.map(day => {
-            const date = formatDateKey(day);
-            const slotTodos = (todosByDate.get(date) ?? []).filter((todo, index) => {
-              const meta = eventMeta[todo.id] ?? defaultMeta(index);
-              return Number(meta.startTime.slice(0, 2)) === hour;
-            });
+      <div className="calendar-hour-rail">
+        {HOURS.map(hour => (
+          <div key={`time-${hour}`} className="calendar-hour-label">
+            {timeAt(hour)}
+          </div>
+        ))}
+      </div>
 
-            return (
+      {days.map(day => {
+        const date = formatDateKey(day);
+        const selection = dragSelection?.date === date ? dragSelection : null;
+        const dayTodos = (todosByDate.get(date) ?? [])
+          .map((todo, index) => ({ todo, meta: eventMeta[todo.id] ?? defaultMeta(index) }))
+          .sort((a, b) => parseTimeToMinutes(a.meta.startTime) - parseTimeToMinutes(b.meta.startTime));
+
+        return (
+          <div
+            key={date}
+            className="calendar-day-column"
+            onPointerDown={(event) => onPointerDown(date, event)}
+            onPointerMove={(event) => onPointerMove(date, event)}
+            onPointerUp={(event) => onPointerUp(date, event)}
+            onPointerCancel={(event) => onPointerCancel(date, event)}
+          >
+            {selection && (
               <div
-                key={`${date}-${hour}`}
-                className="calendar-time-slot"
-                onPointerDown={() => onPointerDown(date, hour)}
-                onPointerUp={() => onPointerUp(date, hour)}
-                onDoubleClick={() => onCreate(date, timeAt(hour), timeAt(hour + 1))}
-              >
-                {slotTodos.map(todo => (
-                  <CalendarEvent
-                    key={todo.id}
-                    todo={todo}
-                    meta={eventMeta[todo.id] ?? defaultMeta()}
-                    onToggle={onToggle}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </div>
-            );
-          }),
-        ];
+                className="calendar-drag-preview"
+                style={eventPosition({
+                  startTime: formatMinutesAsTime(selection.startMinutes),
+                  endTime: formatMinutesAsTime(selection.endMinutes),
+                  kind: 'task',
+                  color: 'blue',
+                })}
+              />
+            )}
+
+            {dayTodos.map(({ todo, meta }) => (
+              <CalendarEvent
+                key={todo.id}
+                todo={todo}
+                meta={meta}
+                timed
+                style={eventPosition(meta)}
+                onToggle={onToggle}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        );
       })}
     </div>
   );
@@ -380,7 +523,7 @@ function MonthGrid({
   onDelete: (todoId: string) => void;
 }) {
   return (
-    <div>
+    <div className="calendar-month-scroll">
       <div className="calendar-month-weekdays">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day}>{day}</div>
@@ -389,7 +532,9 @@ function MonthGrid({
       <div className="calendar-month-grid">
         {days.map(day => {
           const date = formatDateKey(day);
-          const dayTodos = todosByDate.get(date) ?? [];
+          const dayTodos = (todosByDate.get(date) ?? [])
+            .map((todo, index) => ({ todo, meta: eventMeta[todo.id] ?? defaultMeta(index) }))
+            .sort((a, b) => parseTimeToMinutes(a.meta.startTime) - parseTimeToMinutes(b.meta.startTime));
           return (
             <div key={date} className={`calendar-month-cell ${!isSameMonth(day, currentDate) ? 'is-muted' : ''}`}>
               <button className="calendar-month-date" onClick={() => onCreate(date)}>
@@ -397,17 +542,16 @@ function MonthGrid({
                 <Plus className="h-3 w-3" />
               </button>
               <div className="calendar-month-events">
-                {dayTodos.slice(0, 4).map((todo, index) => (
-                  <CalendarEvent
+                {dayTodos.slice(0, 5).map(({ todo, meta }) => (
+                  <MonthEvent
                     key={todo.id}
                     todo={todo}
-                    compact
-                    meta={eventMeta[todo.id] ?? defaultMeta(index)}
+                    meta={meta}
                     onToggle={onToggle}
                     onDelete={onDelete}
                   />
                 ))}
-                {dayTodos.length > 4 && <div className="calendar-more-count">+{dayTodos.length - 4} more</div>}
+                {dayTodos.length > 5 && <div className="calendar-more-count">+{dayTodos.length - 5} more</div>}
               </div>
             </div>
           );
@@ -421,18 +565,23 @@ function CalendarEvent({
   todo,
   meta,
   compact,
+  timed,
+  style,
   onToggle,
   onDelete,
 }: {
   todo: Todo;
   meta: CalendarEventMeta;
   compact?: boolean;
+  timed?: boolean;
+  style?: CSSProperties;
   onToggle: (todoId: string) => void;
   onDelete: (todoId: string) => void;
 }) {
   return (
     <div
-      className={`calendar-event calendar-event-${meta.color} ${todo.completed ? 'is-complete' : ''} ${compact ? 'is-compact' : ''}`}
+      className={`calendar-event calendar-event-${meta.color} ${todo.completed ? 'is-complete' : ''} ${compact ? 'is-compact' : ''} ${timed ? 'is-timed' : ''}`}
+      style={style}
       onPointerDown={event => event.stopPropagation()}
       onPointerUp={event => event.stopPropagation()}
     >
@@ -450,7 +599,7 @@ function CalendarEvent({
         {!compact && (
           <div className="calendar-event-meta">
             <Clock className="h-3 w-3" />
-            {meta.startTime}-{meta.endTime} · {meta.kind}
+            {meta.startTime}-{meta.endTime} / {meta.kind}
           </div>
         )}
       </div>
@@ -467,17 +616,58 @@ function CalendarEvent({
   );
 }
 
+function MonthEvent({
+  todo,
+  meta,
+  onToggle,
+  onDelete,
+}: {
+  todo: Todo;
+  meta: CalendarEventMeta;
+  onToggle: (todoId: string) => void;
+  onDelete: (todoId: string) => void;
+}) {
+  return (
+    <div className={`calendar-month-event calendar-month-event-${meta.color} ${todo.completed ? 'is-complete' : ''}`}>
+      <button
+        className="calendar-event-check"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle(todo.id);
+        }}
+      >
+        {todo.completed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+      </button>
+      <span className="calendar-month-event-time">{meta.startTime}</span>
+      <span className="calendar-month-event-title">{todo.title}</span>
+      <button
+        className="calendar-event-delete"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(todo.id);
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 function EventDraftPanel({
   draft,
+  error,
+  saving,
   activePeriod,
   onChange,
   onSubmit,
   onCancel,
 }: {
   draft: DraftEvent;
+  error: string;
+  saving: boolean;
   activePeriod?: { goals: Goal[] };
   onChange: (draft: DraftEvent) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onCancel: () => void;
 }) {
   const selectedGoal = activePeriod?.goals.find(goal => goal.id === draft.goalId);
@@ -492,13 +682,19 @@ function EventDraftPanel({
 
   return (
     <div className="calendar-form-overlay">
-      <div className="calendar-form">
+      <form
+        className="calendar-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
         <div className="calendar-form-header">
           <div>
             <h3>Create task</h3>
             <p>{format(new Date(`${draft.date}T00:00:00`), 'EEEE, MMM d')}</p>
           </div>
-          <button className="calendar-icon-button" onClick={onCancel}>×</button>
+          <button type="button" className="calendar-icon-button" onClick={onCancel}>x</button>
         </div>
 
         <label>
@@ -553,11 +749,15 @@ function EventDraftPanel({
           </>
         )}
 
+        {error && <div className="calendar-form-error">{error}</div>}
+
         <div className="calendar-form-actions">
-          <button className="calendar-secondary-button" onClick={onCancel}>Cancel</button>
-          <button className="calendar-primary-button" onClick={onSubmit}>Create task</button>
+          <button type="button" className="calendar-secondary-button" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button type="submit" className="calendar-primary-button" disabled={saving}>
+            {saving ? 'Creating...' : 'Create task'}
+          </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

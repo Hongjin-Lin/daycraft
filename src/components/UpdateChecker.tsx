@@ -1,25 +1,63 @@
 import { useEffect, useState } from 'react';
-import { Button } from './ui/button';
 import { Download, X } from 'lucide-react';
 
-const CURRENT_VERSION = '1.0.0';
 const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/Hongjin-Lin/daycraft/master/public/version.json';
+const LOCAL_VERSION_URL = '/version.json';
+
+interface VersionInfo {
+  version: string;
+  apkUrl: string;
+}
+
+function compareVersions(a: string, b: string) {
+  const aParts = a.split('.').map(part => Number.parseInt(part, 10) || 0);
+  const bParts = b.split('.').map(part => Number.parseInt(part, 10) || 0);
+  const length = Math.max(aParts.length, bParts.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const diff = (aParts[index] ?? 0) - (bParts[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+
+  return 0;
+}
+
+function isMobileUpdateSurface() {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isMobileViewport = window.matchMedia('(max-width: 768px)').matches;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const isIOSStandalone = Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+
+  return isAndroid || isMobileViewport || isStandalone || isIOSStandalone;
+}
+
+async function fetchVersionInfo(url: string): Promise<VersionInfo | null> {
+  const response = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) return null;
+  return response.json();
+}
 
 export function UpdateChecker() {
-  const [updateInfo, setUpdateInfo] = useState<{ version: string; apkUrl: string } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if running on Android (Capacitor uses localhost)
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (!isAndroid) return;
+    if (!isMobileUpdateSurface()) return;
 
     const checkUpdate = async () => {
       try {
-        const res = await fetch(VERSION_CHECK_URL + '?t=' + Date.now());
-        const data = await res.json();
-        if (data.version && data.version !== CURRENT_VERSION) {
-          setUpdateInfo(data);
+        const [localInfo, remoteInfo] = await Promise.all([
+          fetchVersionInfo(LOCAL_VERSION_URL),
+          fetchVersionInfo(VERSION_CHECK_URL),
+        ]);
+
+        if (
+          localInfo?.version &&
+          remoteInfo?.version &&
+          remoteInfo.apkUrl &&
+          compareVersions(remoteInfo.version, localInfo.version) > 0
+        ) {
+          setUpdateInfo(remoteInfo);
         }
       } catch {
         // Silently fail if offline
