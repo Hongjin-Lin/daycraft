@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
-import { CalendarDays, X } from 'lucide-react';
+import { CalendarDays, RotateCcw, Trash2, X } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { WeekPeriod } from '../lib/types';
 import { dateFromISO, daysInPeriod, endDateForWeeks, formatISODate, weeksInPeriod } from '../lib/period-utils';
@@ -18,12 +18,22 @@ const presets = [
 ];
 
 export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps) {
+  const periods = useStore(s => s.periods);
   const updatePeriod = useStore(s => s.updatePeriod);
+  const createPeriod = useStore(s => s.createPeriod);
+  const activatePeriod = useStore(s => s.activatePeriod);
+  const deletePeriod = useStore(s => s.deletePeriod);
   const [open, setOpen] = useState(false);
   const [startDate, setStartDate] = useState(formatISODate(period.startDate));
   const [endDate, setEndDate] = useState(formatISODate(period.endDate));
   const [saving, setSaving] = useState(false);
+  const [busyPeriodId, setBusyPeriodId] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  const sortedPeriods = useMemo(
+    () => [...periods].sort((a, b) => b.startDate.getTime() - a.startDate.getTime()),
+    [periods]
+  );
 
   const preview = useMemo(() => {
     const start = dateFromISO(startDate);
@@ -65,6 +75,54 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
       setError(err.message || 'Could not save period.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createNew = async () => {
+    if (preview.invalid) {
+      setError('End date must be on or after the start date.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      await createPeriod(dateFromISO(startDate), dateFromISO(endDate));
+      setOpen(false);
+    } catch (err: any) {
+      setError(err.message || 'Could not create period.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activate = async (periodId: string) => {
+    setBusyPeriodId(periodId);
+    setError('');
+    try {
+      await activatePeriod(periodId);
+    } catch (err: any) {
+      setError(err.message || 'Could not activate period.');
+    } finally {
+      setBusyPeriodId(null);
+    }
+  };
+
+  const remove = async (target: WeekPeriod) => {
+    const label = `${format(target.startDate, 'MMM d, yyyy')} - ${format(target.endDate, 'MMM d, yyyy')}`;
+    if (!window.confirm(`Delete period ${label}? This also deletes its goals, tactics, weekly scores, and linked tasks.`)) {
+      return;
+    }
+
+    setBusyPeriodId(target.id);
+    setError('');
+    try {
+      await deletePeriod(target.id);
+      if (target.id === period.id) setOpen(false);
+    } catch (err: any) {
+      setError(err.message || 'Could not delete period.');
+    } finally {
+      setBusyPeriodId(null);
     }
   };
 
@@ -150,6 +208,70 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                 </div>
               </div>
 
+              <div className="border-t border-gray-200 pt-5">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-950">Period history</h3>
+                  <p className="mt-1 text-sm text-gray-500">Switch back to an older period or delete periods you no longer need.</p>
+                </div>
+
+                {sortedPeriods.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-gray-300 px-3 py-4 text-sm text-gray-500">
+                    No saved periods.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {sortedPeriods.map(savedPeriod => {
+                      const isBusy = busyPeriodId === savedPeriod.id;
+                      return (
+                        <div
+                          key={savedPeriod.id}
+                          className="flex items-center justify-between gap-3 rounded-md border border-gray-200 px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-950">
+                                {format(savedPeriod.startDate, 'MMM d, yyyy')} - {format(savedPeriod.endDate, 'MMM d, yyyy')}
+                              </span>
+                              {savedPeriod.active && (
+                                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {weeksInPeriod(savedPeriod.startDate, savedPeriod.endDate)} weeks, {savedPeriod.goals.length} goals
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1">
+                            {!savedPeriod.active && (
+                              <button
+                                type="button"
+                                className="rounded-md p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => activate(savedPeriod.id)}
+                                disabled={isBusy}
+                                title="Activate period"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="rounded-md p-2 text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              onClick={() => remove(savedPeriod)}
+                              disabled={isBusy}
+                              title="Delete period"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {error && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
@@ -157,9 +279,12 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
               )}
             </div>
 
-            <div className="flex gap-3 border-t border-gray-200 px-5 py-4">
+            <div className="flex flex-col gap-3 border-t border-gray-200 px-5 py-4 sm:flex-row">
               <Button className="flex-1" onClick={save} disabled={saving || preview.invalid}>
                 {saving ? 'Saving...' : 'Save period'}
+              </Button>
+              <Button variant="outline" onClick={createNew} disabled={saving || preview.invalid}>
+                Create new
               </Button>
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
