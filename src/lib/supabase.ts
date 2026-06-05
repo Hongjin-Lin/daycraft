@@ -248,6 +248,8 @@ class SupabaseQueryBuilder {
   private orderCol: string | null = null;
   private orderAsc = true;
   private limitN: number | null = null;
+  private upsertOnConflict: string | null = null;
+  private preferDirectives: string[] = [];
 
   constructor(tableName: string) {
     this.tableName = tableName;
@@ -263,6 +265,14 @@ class SupabaseQueryBuilder {
   insert(data: any) {
     this.method = 'POST';
     this.bodyData = Array.isArray(data) ? data : [data];
+    return this;
+  }
+
+  upsert(data: any, options: { onConflict?: string } = {}) {
+    this.method = 'POST';
+    this.bodyData = Array.isArray(data) ? data : [data];
+    this.upsertOnConflict = options.onConflict ?? null;
+    this.preferDirectives.push('resolution=merge-duplicates');
     return this;
   }
 
@@ -292,6 +302,11 @@ class SupabaseQueryBuilder {
     return this;
   }
 
+  maybeSingle() {
+    this.isSingle = true;
+    return this;
+  }
+
   limit(n: number) {
     this.limitN = n;
     return this;
@@ -314,12 +329,18 @@ class SupabaseQueryBuilder {
     if (this.limitN) {
       url += `&limit=${this.limitN}`;
     }
+    if (this.upsertOnConflict) {
+      url += `&on_conflict=${encodeURIComponent(this.upsertOnConflict)}`;
+    }
     return url;
   }
 
   async then(resolve: (result: { data: any; error: any }) => void, reject?: (err: any) => void) {
     try {
       const headers = await getAuthHeaders();
+      if (this.preferDirectives.length > 0) {
+        headers.Prefer = [headers.Prefer, ...this.preferDirectives].filter(Boolean).join(',');
+      }
       let url = this.buildUrl();
       let fetchOptions: RequestInit = { method: this.method, headers };
 

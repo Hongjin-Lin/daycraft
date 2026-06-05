@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, ChevronRight, Target, TrendingUp } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle2, ChevronRight, Target, TrendingUp } from 'lucide-react';
 import { useStore } from '../lib/store';
 import {
   daysInPeriod,
@@ -17,7 +17,7 @@ import { ProgressTracker } from './ProgressTracker';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { periods, activePeriodId, todos, createPeriod } = useStore();
+  const { periods, activePeriodId, todos, weeklyScores, createPeriod } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
 
   const handleCreatePeriod = () => {
@@ -61,12 +61,44 @@ export function Dashboard() {
   const completedTodayTodos = todayTodos.filter(t => t.completed).length;
   const weekTodos = todos.filter(t => {
     const date = t.date;
+    if (!date) return false;
     return date >= formatISODate(activePeriod.startDate) && date <= formatISODate(activePeriod.endDate);
   });
   const completedPeriodTodos = weekTodos.filter(t => t.completed).length;
   const executionRate = weekTodos.length > 0 ? Math.round((completedPeriodTodos / weekTodos.length) * 100) : 0;
+  const hasAnyScorecard = weeklyScores.some(score => score.periodId === activePeriod.id);
 
   const topGoals = activePeriod.goals.slice(0, 4);
+  const setupActions = [
+    {
+      title: totalGoals === 0 ? 'Add first goal' : 'Review goals',
+      description: totalGoals === 0
+        ? 'Define one outcome for this planning period.'
+        : `${totalGoals} goal${totalGoals === 1 ? '' : 's'} in this period.`,
+      path: '/goals',
+      icon: Target,
+      isDone: totalGoals > 0,
+    },
+    {
+      title: todayTodos.length === 0 ? "Plan today's task" : "View today's plan",
+      description: todayTodos.length === 0
+        ? 'Schedule the next concrete action for today.'
+        : `${todayTodos.length} task${todayTodos.length === 1 ? '' : 's'} planned today.`,
+      path: '/calendar',
+      icon: Calendar,
+      isDone: todayTodos.length > 0,
+    },
+    {
+      title: hasAnyScorecard ? 'Review scorecard' : 'Start scorecard',
+      description: hasAnyScorecard
+        ? 'Check execution and adjust the week.'
+        : 'Create the first weekly execution review.',
+      path: '/scorecard',
+      icon: CheckCircle2,
+      isDone: hasAnyScorecard,
+    },
+  ];
+  const nextAction = setupActions.find(action => !action.isDone) ?? setupActions[2];
 
   return (
     <div className="space-y-6">
@@ -106,6 +138,51 @@ export function Dashboard() {
           <div className="h-2 overflow-hidden rounded-full bg-gray-100">
             <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${timeProgress}%` }} />
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="mb-1 text-sm font-medium text-blue-700">Next best action</p>
+            <h3 className="text-xl font-semibold text-gray-950">{nextAction.title}</h3>
+            <p className="mt-1 text-sm leading-6 text-gray-600">{nextAction.description}</p>
+          </div>
+          <button
+            onClick={() => navigate(nextAction.path)}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Open
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {setupActions.map((action) => {
+            const Icon = action.icon;
+            const recommended = action === nextAction;
+
+            return (
+              <button
+                key={action.path}
+                onClick={() => navigate(action.path)}
+                className={`flex items-start justify-between gap-3 rounded-md border p-4 text-left transition-colors ${
+                  recommended
+                    ? 'border-blue-600 bg-blue-50 text-blue-900'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex min-w-0 items-start gap-2">
+                  <Icon className={`mt-0.5 h-5 w-5 flex-shrink-0 ${action.isDone ? 'text-green-600' : 'text-blue-600'}`} />
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{action.title}</span>
+                    <span className="mt-1 block text-xs leading-5 text-gray-500">{action.description}</span>
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4 flex-shrink-0" />
+              </button>
+            );
+          })}
         </div>
       </section>
 

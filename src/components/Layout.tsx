@@ -3,11 +3,13 @@ import {
   BarChart3,
   Bot,
   Calendar as CalendarIcon,
+  Columns,
   ClipboardCheck,
   LayoutDashboard,
   LogOut,
   RefreshCw,
   Target,
+  Utensils,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
@@ -19,6 +21,8 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
+  { to: '/kanban', label: 'Kanban', icon: Columns },
+  { to: '/nutrition', label: 'Nutrition', icon: Utensils },
   { to: '/scorecard', label: 'Scorecard', icon: ClipboardCheck },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/agents', label: 'Agents', icon: Bot },
@@ -28,6 +32,10 @@ export function Layout() {
   const location = useLocation();
   const { periods, activePeriodId } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   const handleCheckUpdate = async () => {
     try {
@@ -58,11 +66,12 @@ export function Layout() {
 
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navItems.map(item => {
-            const active = location.pathname === item.to;
+            const active = isActive(item.to);
             return (
               <Link
                 key={item.to}
                 to={item.to}
+                aria-current={active ? 'page' : undefined}
                 className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                   active
                     ? 'bg-blue-50 text-blue-700'
@@ -117,11 +126,12 @@ export function Layout() {
         </div>
         <nav className="flex gap-1 overflow-x-auto">
           {navItems.map(item => {
-            const active = location.pathname === item.to;
+            const active = isActive(item.to);
             return (
               <Link
                 key={item.to}
                 to={item.to}
+                aria-current={active ? 'page' : undefined}
                 className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium ${
                   active ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
                 }`}
