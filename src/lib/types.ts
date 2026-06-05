@@ -2,7 +2,8 @@ export interface Tactic {
   id: string;
   title: string;
   completed: boolean;
-  dueWeek?: number; // 1-12, which week this tactic should be completed
+  dueDate?: string; // yyyy-MM-dd, exact day this tactic should be completed
+  dueWeek?: number; // Legacy: 1-12, which week this tactic should be completed
 }
 
 export interface Goal {
@@ -24,8 +25,11 @@ export interface WeekPeriod {
 export interface Todo {
   id: string;
   title: string;
-  date: string; // ISO date string
+  date?: string; // ISO date string, optional for unscheduled kanban todos
   completed: boolean;
+  kind?: 'todo' | 'ddl';
+  category?: 'chore' | 'general' | 'academic' | 'health';
+  completedAt?: string;
   goalId?: string;
   tacticId?: string;
 }

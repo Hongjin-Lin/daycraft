@@ -2,6 +2,7 @@
       "name": "daycraft",
       "version": "0.1.0",
       "private": true,
+      "type": "module",
       "dependencies": {
             "@capacitor/android": "^8.3.4",
             "@capacitor/cli": "^8.3.4",
@@ -59,6 +60,7 @@
             "@types/react": "^19.2.15",
             "@types/react-dom": "^19.2.3",
             "@vitejs/plugin-react-swc": "^3.10.2",
+            "tsx": "^4.22.4",
             "typescript": "^6.0.3",
             "vite": "6.3.5"
       },
@@ -66,8 +68,12 @@
             "dev": "vite",
             "build": "vite build",
             "typecheck": "tsc --noEmit",
-            "test:calendar": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\calendar-interaction.test.ts",
-            "test:update": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\update-check.test.ts",
-            "test:period": "mcp-server\\node_modules\\.bin\\tsx.cmd src\\lib\\period-utils.test.ts"
+            "test:calendar": "tsx --test src/lib/calendar-interaction.test.ts",
+            "test:update": "tsx --test src/lib/update-check.test.ts",
+            "test:period": "tsx --test src/lib/period-utils.test.ts",
+            "test:todo": "tsx --test src/lib/todo-utils.test.ts",
+            "test:nutrition": "tsx --test src/lib/nutrition.test.ts",
+            "test:lib": "tsx --test src/lib/calendar-interaction.test.ts src/lib/update-check.test.ts src/lib/period-utils.test.ts src/lib/todo-utils.test.ts src/lib/nutrition.test.ts",
+            "mcp:nutrition": "node mcp/nutrition-mcp-server.mjs"
       }
 }

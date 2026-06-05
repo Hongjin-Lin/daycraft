@@ -210,6 +210,7 @@ export function Calendar() {
   const todosByDate = useMemo(() => {
     const map = new Map<string, Todo[]>();
     for (const todo of todos) {
+      if (!todo.date) continue;
       const list = map.get(todo.date) ?? [];
       list.push(todo);
       map.set(todo.date, list);
@@ -393,6 +394,8 @@ export function Calendar() {
         title: draft.title.trim(),
         date: draft.date,
         completed: false,
+        kind: 'todo',
+        category: 'general',
         goalId: draft.goalId || undefined,
         tacticId: draft.tacticId || undefined,
       });

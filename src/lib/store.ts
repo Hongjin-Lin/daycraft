@@ -1,8 +1,25 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
 import { WeekPeriod, Goal, Todo, Tactic, WeeklyScore } from './types';
-import { DbPeriod, DbGoal, DbTactic, DbTodo, DbWeeklyScore } from './db-types';
+import {
+  DbPeriod,
+  DbGoal,
+  DbTactic,
+  DbTodo,
+  DbWeeklyScore,
+  DbNutritionEntry,
+  DbNutritionTarget,
+} from './db-types';
 import { dateFromISO, endDateForWeeks, formatISODate } from './period-utils';
+import {
+  createNutritionEntry,
+  defaultNutritionTargets,
+  mergeNutritionEntries,
+  type NutritionEntry,
+  type NutritionEntryInput,
+  type NutritionTargets,
+} from './nutrition';
+import { completeTodo, normalizeTodo, reopenTodo } from './todo-utils';
 
 // --- helpers to convert between DB rows and app types ---
 
@@ -31,19 +48,23 @@ function toTactic(row: DbTactic): Tactic {
     id: row.id,
     title: row.title,
     completed: row.completed,
+    dueDate: row.due_date ?? undefined,
     dueWeek: row.due_week ?? undefined,
   };
 }
 
 function toTodo(row: DbTodo): Todo {
-  return {
+  return normalizeTodo({
     id: row.id,
     title: row.title,
-    date: row.date,
+    date: row.date ?? undefined,
     completed: row.completed,
+    kind: row.kind ?? 'todo',
+    category: row.category ?? 'general',
+    completedAt: row.completed_at ?? undefined,
     goalId: row.goal_id ?? undefined,
     tacticId: row.tactic_id ?? undefined,
-  };
+  });
 }
 
 function toWeeklyScore(row: DbWeeklyScore): WeeklyScore {
@@ -55,6 +76,58 @@ function toWeeklyScore(row: DbWeeklyScore): WeeklyScore {
     executionScore: row.execution_score,
     notes: row.notes,
     periodId: row.period_id,
+  };
+}
+
+function toNutritionEntry(row: DbNutritionEntry): NutritionEntry {
+  return {
+    id: row.id,
+    date: row.date,
+    time: row.time,
+    meal: row.meal,
+    name: row.name,
+    calories: Number(row.calories),
+    protein: Number(row.protein),
+    carbs: Number(row.carbs),
+    fat: Number(row.fat),
+    emoji: row.emoji ?? undefined,
+    imageUrl: row.image_url ?? undefined,
+    notes: row.notes ?? '',
+    source: row.source ?? 'manual',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toNutritionTargets(row?: DbNutritionTarget | null): NutritionTargets {
+  if (!row) return defaultNutritionTargets;
+
+  return {
+    calories: Number(row.calories),
+    protein: Number(row.protein),
+    carbs: Number(row.carbs),
+    fat: Number(row.fat),
+  };
+}
+
+function nutritionEntryDbPayload(userId: string, entry: NutritionEntry) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    date: entry.date,
+    time: entry.time,
+    meal: entry.meal,
+    name: entry.name,
+    calories: entry.calories,
+    protein: entry.protein,
+    carbs: entry.carbs,
+    fat: entry.fat,
+    emoji: entry.emoji ?? null,
+    image_url: entry.imageUrl ?? null,
+    notes: entry.notes ?? '',
+    source: entry.source,
+    created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
   };
 }
 
@@ -71,6 +144,8 @@ interface AppState {
   todos: Todo[];
   activePeriodId: string | null;
   weeklyScores: WeeklyScore[];
+  nutritionEntries: NutritionEntry[];
+  nutritionTargets: NutritionTargets;
   loading: boolean;
 
   loadAll: () => Promise<void>;
@@ -85,7 +160,7 @@ interface AppState {
   updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (goalId: string) => Promise<void>;
 
-  addTactic: (goalId: string, title: string, dueWeek?: number) => Promise<void>;
+  addTactic: (goalId: string, title: string, due?: string | number) => Promise<void>;
   toggleTactic: (goalId: string, tacticId: string) => Promise<void>;
   deleteTactic: (goalId: string, tacticId: string) => Promise<void>;
 
@@ -98,6 +173,11 @@ interface AppState {
   updateWeeklyScore: (scoreId: string, updates: Partial<WeeklyScore>) => Promise<void>;
   getWeeklyScore: (periodId: string, weekNumber: number) => WeeklyScore | undefined;
 
+  addNutritionEntry: (entry: NutritionEntryInput) => Promise<NutritionEntry>;
+  importNutritionEntries: (entries: NutritionEntry[]) => Promise<void>;
+  deleteNutritionEntry: (entryId: string) => Promise<void>;
+  setNutritionTargets: (targets: NutritionTargets) => Promise<void>;
+
   getActivePeriod: () => WeekPeriod | undefined;
   calculateGoalProgress: (goalId: string) => void;
 
@@ -109,18 +189,22 @@ export const useStore = create<AppState>()((set, get) => ({
   todos: [],
   activePeriodId: null,
   weeklyScores: [],
+  nutritionEntries: [],
+  nutritionTargets: defaultNutritionTargets,
   loading: true,
 
   // ========== HYDRATION ==========
   loadAll: async () => {
     const userId = await getUserId();
 
-    const [periodsRes, goalsRes, tacticsRes, todosRes, scoresRes] = await Promise.all([
+    const [periodsRes, goalsRes, tacticsRes, todosRes, scoresRes, nutritionEntriesRes, nutritionTargetsRes] = await Promise.all([
       supabase.from('periods').select('*').eq('user_id', userId),
       supabase.from('goals').select('*').eq('user_id', userId),
       supabase.from('tactics').select('*').eq('user_id', userId),
       supabase.from('todos').select('*').eq('user_id', userId),
       supabase.from('weekly_scores').select('*').eq('user_id', userId),
+      supabase.from('nutrition_entries').select('*').eq('user_id', userId),
+      supabase.from('nutrition_targets').select('*').eq('user_id', userId).maybeSingle(),
     ]);
 
     const tacticsByGoal = new Map<string, Tactic[]>();
@@ -143,12 +227,18 @@ export const useStore = create<AppState>()((set, get) => ({
 
     const todos = ((todosRes.data ?? []) as DbTodo[]).map(toTodo);
     const weeklyScores = ((scoresRes.data ?? []) as DbWeeklyScore[]).map(toWeeklyScore);
+    const nutritionEntries = ((nutritionEntriesRes.data ?? []) as DbNutritionEntry[])
+      .map(toNutritionEntry)
+      .sort((left, right) => `${right.date} ${right.time}`.localeCompare(`${left.date} ${left.time}`));
+    const nutritionTargets = toNutritionTargets(nutritionTargetsRes.data as DbNutritionTarget | null);
     const activePeriod = periods.find(p => p.active);
 
     set({
       periods,
       todos,
       weeklyScores,
+      nutritionEntries,
+      nutritionTargets,
       activePeriodId: activePeriod?.id ?? null,
       loading: false,
     });
@@ -200,6 +290,7 @@ export const useStore = create<AppState>()((set, get) => ({
             title: tactic.title,
             completed: tactic.completed ?? false,
             due_week: tactic.dueWeek ?? null,
+            due_date: tactic.dueDate ?? null,
           });
         }
       }
@@ -210,11 +301,28 @@ export const useStore = create<AppState>()((set, get) => ({
       await supabase.from('todos').insert({
         user_id: userId,
         title: todo.title,
-        date: todo.date,
+        date: todo.date ?? null,
         completed: todo.completed ?? false,
+        kind: todo.kind ?? 'todo',
+        category: todo.category ?? 'general',
+        completed_at: todo.completedAt ?? null,
         goal_id: todo.goalId ?? null,
         tactic_id: todo.tacticId ?? null,
       });
+    }
+
+    for (const entry of state.nutritionEntries ?? []) {
+      await supabase
+        .from('nutrition_entries')
+        .upsert(nutritionEntryDbPayload(userId, entry));
+    }
+
+    if (state.nutritionTargets) {
+      await supabase.from('nutrition_targets').upsert({
+        user_id: userId,
+        ...state.nutritionTargets,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
     }
 
     // Migrate weekly scores
@@ -462,7 +570,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   // ========== TACTIC ACTIONS ==========
-  addTactic: async (goalId, title, dueWeek) => {
+  addTactic: async (goalId, title, due) => {
     const userId = await getUserId();
 
     const { data, error } = await supabase
@@ -472,7 +580,8 @@ export const useStore = create<AppState>()((set, get) => ({
         goal_id: goalId,
         title,
         completed: false,
-        due_week: dueWeek ?? null,
+        due_week: typeof due === 'number' ? due : null,
+        due_date: typeof due === 'string' ? due : null,
       })
       .select()
       .single();
@@ -548,16 +657,23 @@ export const useStore = create<AppState>()((set, get) => ({
   // ========== TODO ACTIONS ==========
   addTodo: async (todo) => {
     const userId = await getUserId();
+    const normalizedTodo = normalizeTodo({
+      ...todo,
+      id: crypto.randomUUID(),
+    });
 
     const { data, error } = await supabase
       .from('todos')
       .insert({
         user_id: userId,
-        title: todo.title,
-        date: todo.date,
-        completed: todo.completed ?? false,
-        goal_id: todo.goalId ?? null,
-        tactic_id: todo.tacticId ?? null,
+        title: normalizedTodo.title,
+        date: normalizedTodo.date ?? null,
+        completed: normalizedTodo.completed ?? false,
+        kind: normalizedTodo.kind ?? 'todo',
+        category: normalizedTodo.category ?? 'general',
+        completed_at: normalizedTodo.completedAt ?? null,
+        goal_id: normalizedTodo.goalId ?? null,
+        tactic_id: normalizedTodo.tacticId ?? null,
       })
       .select()
       .single();
@@ -573,8 +689,11 @@ export const useStore = create<AppState>()((set, get) => ({
   updateTodo: async (todoId, updates) => {
     const dbUpdates: Record<string, any> = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
-    if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if (updates.date !== undefined) dbUpdates.date = updates.date ?? null;
     if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+    if (updates.kind !== undefined) dbUpdates.kind = updates.kind;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt ?? null;
     if (updates.goalId !== undefined) dbUpdates.goal_id = updates.goalId;
     if (updates.tacticId !== undefined) dbUpdates.tactic_id = updates.tacticId;
 
@@ -582,7 +701,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (error) throw error;
 
     set(state => ({
-      todos: state.todos.map(t => t.id === todoId ? { ...t, ...updates } : t),
+      todos: state.todos.map(t => t.id === todoId ? normalizeTodo({ ...t, ...updates }) : t),
     }));
   },
 
@@ -597,17 +716,20 @@ export const useStore = create<AppState>()((set, get) => ({
     const todo = get().todos.find(t => t.id === todoId);
     if (!todo) return;
 
-    const newCompleted = !todo.completed;
+    const updatedTodo = todo.completed ? reopenTodo(todo) : completeTodo(todo);
     const { error } = await supabase
       .from('todos')
-      .update({ completed: newCompleted })
+      .update({
+        completed: updatedTodo.completed,
+        completed_at: updatedTodo.completedAt ?? null,
+      })
       .eq('id', todoId);
 
     if (error) throw error;
 
     set(state => ({
       todos: state.todos.map(t =>
-        t.id === todoId ? { ...t, completed: newCompleted } : t
+        t.id === todoId ? updatedTodo : t
       ),
     }));
 
@@ -617,7 +739,7 @@ export const useStore = create<AppState>()((set, get) => ({
         t => t.tacticId === todo.tacticId && t.id !== todoId
       );
       const allTacticTodosCompleted =
-        tacticTodos.every(t => t.completed) && newCompleted;
+        tacticTodos.every(t => t.completed) && updatedTodo.completed;
 
       const period = get().periods.find(p =>
         p.goals.some(g => g.id === todo.goalId)
@@ -627,7 +749,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
       if (tactic && allTacticTodosCompleted && !tactic.completed) {
         get().toggleTactic(todo.goalId, todo.tacticId);
-      } else if (tactic && !newCompleted && tactic.completed) {
+      } else if (tactic && !updatedTodo.completed && tactic.completed) {
         get().toggleTactic(todo.goalId, todo.tacticId);
       }
     }
@@ -676,6 +798,81 @@ export const useStore = create<AppState>()((set, get) => ({
     return get().weeklyScores.find(
       s => s.periodId === periodId && s.weekNumber === weekNumber
     );
+  },
+
+  // ========== NUTRITION ACTIONS ==========
+  addNutritionEntry: async (entryInput) => {
+    const userId = await getUserId();
+    const entry = createNutritionEntry(entryInput);
+
+    const { data, error } = await supabase
+      .from('nutrition_entries')
+      .upsert(nutritionEntryDbPayload(userId, entry))
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const savedEntry = data ? toNutritionEntry(data as DbNutritionEntry) : entry;
+    set(state => ({
+      nutritionEntries: mergeNutritionEntries(state.nutritionEntries, [savedEntry]),
+    }));
+
+    return savedEntry;
+  },
+
+  importNutritionEntries: async (entries) => {
+    if (entries.length === 0) return;
+    const userId = await getUserId();
+    const normalizedEntries = entries.map(entry =>
+      createNutritionEntry(entry, {
+        id: () => entry.id,
+        now: () => entry.updatedAt || entry.createdAt || new Date().toISOString(),
+      })
+    );
+
+    const { data, error } = await supabase
+      .from('nutrition_entries')
+      .upsert(normalizedEntries.map(entry => nutritionEntryDbPayload(userId, entry)))
+      .select();
+
+    if (error) throw error;
+
+    const savedEntries = ((data ?? []) as DbNutritionEntry[]).map(toNutritionEntry);
+    set(state => ({
+      nutritionEntries: mergeNutritionEntries(
+        state.nutritionEntries,
+        savedEntries.length > 0 ? savedEntries : normalizedEntries
+      ),
+    }));
+  },
+
+  deleteNutritionEntry: async (entryId) => {
+    const { error } = await supabase.from('nutrition_entries').delete().eq('id', entryId);
+    if (error) throw error;
+
+    set(state => ({
+      nutritionEntries: state.nutritionEntries.filter(entry => entry.id !== entryId),
+    }));
+  },
+
+  setNutritionTargets: async (targets) => {
+    const userId = await getUserId();
+    const nextTargets = {
+      calories: Number(targets.calories) || 0,
+      protein: Number(targets.protein) || 0,
+      carbs: Number(targets.carbs) || 0,
+      fat: Number(targets.fat) || 0,
+    };
+
+    const { error } = await supabase.from('nutrition_targets').upsert({
+      user_id: userId,
+      ...nextTargets,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+
+    if (error) throw error;
+    set({ nutritionTargets: nextTargets });
   },
 
   // ========== HELPERS ==========
@@ -754,6 +951,16 @@ export const useStore = create<AppState>()((set, get) => ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'weekly_scores' },
+        () => { get().loadAll(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'nutrition_entries' },
+        () => { get().loadAll(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'nutrition_targets' },
         () => { get().loadAll(); }
       )
       .subscribe();
