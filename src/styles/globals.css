@@ -764,13 +764,28 @@ html {
 }
 
 @media (max-width: 768px) {
+  .calendar-page {
+    gap: 1rem;
+  }
+
   .calendar-toolbar {
     flex-direction: column;
+    padding: 1rem;
+  }
+
+  .calendar-toolbar h2 {
+    font-size: 1.25rem;
+  }
+
+  .calendar-toolbar p,
+  .calendar-nav p {
+    display: none;
   }
 
   .calendar-toolbar-actions {
     width: 100%;
     justify-content: flex-start;
+    gap: 0.5rem;
   }
 
   .calendar-view-switch {

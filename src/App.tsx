@@ -6,6 +6,7 @@ import { useStore } from './lib/store';
 import { AuthPage } from './components/AuthPage';
 import { UpdateChecker } from './components/UpdateChecker';
 import { AuthSession } from './lib/supabase';
+import { useCopy } from './lib/i18n';
 
 function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -13,6 +14,16 @@ function App() {
   const loadAll = useStore(s => s.loadAll);
   const subscribeToChanges = useStore(s => s.subscribeToChanges);
   const loading = useStore(s => s.loading);
+  const copy = useCopy({
+    en: {
+      loading: 'Loading...',
+      syncing: 'Syncing data...',
+    },
+    zh: {
+      loading: '加载中...',
+      syncing: '正在同步数据...',
+    },
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -49,7 +60,7 @@ function App() {
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-          <div className="text-muted-foreground text-lg">Loading...</div>
+          <div className="text-muted-foreground text-lg">{copy.loading}</div>
         </div>
         <UpdateChecker />
       </>
@@ -69,7 +80,7 @@ function App() {
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-          <div className="text-muted-foreground text-lg">Syncing data...</div>
+          <div className="text-muted-foreground text-lg">{copy.syncing}</div>
         </div>
         <UpdateChecker />
       </>

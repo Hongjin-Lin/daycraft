@@ -7,8 +7,10 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { Progress } from './ui/progress';
+import { useLanguage } from '../lib/i18n';
 
 export function Scorecard() {
+  const { language } = useLanguage();
   const { periods, activePeriodId, todos, weeklyScores, saveWeeklyScore, updateWeeklyScore, getWeeklyScore } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
 
@@ -18,12 +20,71 @@ export function Scorecard() {
   });
   const [editingWeek, setEditingWeek] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
+  const copy = language === 'zh'
+    ? {
+        noPeriod: '请先在总览页创建一个规划周期。',
+        title: '周复盘',
+        description: '追踪当前规划周期的每周执行情况。',
+        currentWeek: '当前周',
+        week: '第',
+        of: '共',
+        averageScore: '平均分',
+        weeksTracked: '周已记录',
+        thisWeek: '本周',
+        tasks: '任务',
+        previousWeek: '上一周',
+        nextWeek: '下一周',
+        executionScore: '执行分',
+        completedOutOf: (done: number, total: number) => `本周完成 ${done} / ${total} 个计划任务`,
+        reflection: '每周反思',
+        editNotes: '编辑笔记',
+        addNotes: '添加笔记',
+        save: '保存',
+        placeholder: '哪些有效？下周需要改变什么？',
+        noNotes: '还没有反思笔记。',
+        taskBreakdown: '任务明细',
+        noTasks: '本周还没有计划任务',
+        goal: '目标',
+        unscheduled: '未安排',
+        overview: '周期概览',
+        overviewDescription: '这个周期所有周的执行分',
+        upcoming: '未开始',
+      }
+    : {
+        noPeriod: 'Please create a planning period first from the dashboard.',
+        title: 'Scorecard',
+        description: 'Track weekly execution for the active planning period.',
+        currentWeek: 'Current Week',
+        week: 'Week',
+        of: 'of',
+        averageScore: 'Average Score',
+        weeksTracked: 'weeks tracked',
+        thisWeek: 'This Week',
+        tasks: 'tasks',
+        previousWeek: 'Previous week',
+        nextWeek: 'Next week',
+        executionScore: 'Execution Score',
+        completedOutOf: (done: number, total: number) => `Completed ${done} out of ${total} planned tasks this week`,
+        reflection: 'Weekly Reflection',
+        editNotes: 'Edit Notes',
+        addNotes: 'Add Notes',
+        save: 'Save',
+        placeholder: 'What worked? What needs to change next week?',
+        noNotes: 'No reflection notes yet.',
+        taskBreakdown: 'Task Breakdown',
+        noTasks: 'No tasks planned for this week',
+        goal: 'Goal',
+        unscheduled: 'Unscheduled',
+        overview: 'Period Overview',
+        overviewDescription: 'Your execution score across all weeks in this period',
+        upcoming: 'Upcoming',
+      };
 
   if (!activePeriod) {
     return (
       <div className="py-12 text-center">
         <Trophy className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-        <p className="text-gray-600">Please create a planning period first from the dashboard.</p>
+        <p className="text-gray-600">{copy.noPeriod}</p>
       </div>
     );
   }
@@ -79,6 +140,12 @@ export function Scorecard() {
   };
 
   const getScoreMessage = (score: number) => {
+    if (language === 'zh') {
+      if (score >= 85) return '执行很出色。';
+      if (score >= 65) return '进展不错，继续保持聚焦。';
+      if (score >= 50) return '执行参差，收紧计划。';
+      return '执行偏低，减少范围后重新承诺。';
+    }
     if (score >= 85) return 'Outstanding execution.';
     if (score >= 65) return 'Good progress. Keep the week focused.';
     if (score >= 50) return 'Mixed execution. Tighten the plan.';
@@ -93,38 +160,38 @@ export function Scorecard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="mb-2 text-3xl font-bold text-gray-900">Scorecard</h2>
-        <p className="text-gray-600">Track weekly execution for the active planning period.</p>
+        <h2 className="mb-1 text-2xl font-bold text-gray-900 sm:mb-2 sm:text-3xl">{copy.title}</h2>
+        <p className="hidden text-gray-600 sm:block">{copy.description}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Current Week</CardDescription>
-            <CardTitle className="text-3xl">Week {activeWeekNumber}</CardTitle>
+            <CardDescription>{copy.currentWeek}</CardDescription>
+            <CardTitle className="text-3xl">{copy.week} {activeWeekNumber}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">of {totalWeeks}</p>
+            <p className="text-sm text-gray-600">{copy.of} {totalWeeks}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Average Score</CardDescription>
+            <CardDescription>{copy.averageScore}</CardDescription>
             <CardTitle className={`text-3xl ${getScoreColor(averageScore)}`}>{averageScore}%</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">{allScores.length} weeks tracked</p>
+            <p className="text-sm text-gray-600">{allScores.length} {copy.weeksTracked}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>This Week</CardDescription>
+            <CardDescription>{copy.thisWeek}</CardDescription>
             <CardTitle className={`text-3xl ${getScoreColor(executionScore)}`}>{executionScore}%</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">{completedWeekTodos} / {weekTodos.length} tasks</p>
+            <p className="text-sm text-gray-600">{completedWeekTodos} / {weekTodos.length} {copy.tasks}</p>
           </CardContent>
         </Card>
       </div>
@@ -134,7 +201,7 @@ export function Scorecard() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <CardTitle>
-                Week {activeWeekNumber}: {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                {copy.week} {activeWeekNumber}: {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
               </CardTitle>
               <CardDescription className="mt-1">{getScoreMessage(executionScore)}</CardDescription>
             </div>
@@ -142,8 +209,8 @@ export function Scorecard() {
               <Button
                 variant="outline"
                 size="icon"
-                aria-label="Previous week"
-                title="Previous week"
+                aria-label={copy.previousWeek}
+                title={copy.previousWeek}
                 onClick={() => setCurrentWeekNumber(Math.max(1, activeWeekNumber - 1))}
                 disabled={activeWeekNumber === 1}
               >
@@ -152,8 +219,8 @@ export function Scorecard() {
               <Button
                 variant="outline"
                 size="icon"
-                aria-label="Next week"
-                title="Next week"
+                aria-label={copy.nextWeek}
+                title={copy.nextWeek}
                 onClick={() => setCurrentWeekNumber(Math.min(totalWeeks, activeWeekNumber + 1))}
                 disabled={activeWeekNumber === totalWeeks}
               >
@@ -166,27 +233,27 @@ export function Scorecard() {
         <CardContent className="space-y-6">
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="font-semibold text-gray-900">Execution Score</span>
+              <span className="font-semibold text-gray-900">{copy.executionScore}</span>
               <span className={`text-2xl font-bold ${getScoreColor(executionScore)}`}>{executionScore}%</span>
             </div>
             <Progress value={executionScore} className="h-3" />
             <p className="mt-2 text-sm text-gray-600">
-              Completed {completedWeekTodos} out of {weekTodos.length} planned tasks this week
+              {copy.completedOutOf(completedWeekTodos, weekTodos.length)}
             </p>
           </div>
 
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="font-semibold text-gray-900">Weekly Reflection</h4>
+              <h4 className="font-semibold text-gray-900">{copy.reflection}</h4>
               {editingWeek !== activeWeekNumber ? (
                 <Button variant="outline" size="sm" onClick={startEditing}>
                   <Edit2 className="mr-2 h-4 w-4" />
-                  {savedScore?.notes ? 'Edit Notes' : 'Add Notes'}
+                  {savedScore?.notes ? copy.editNotes : copy.addNotes}
                 </Button>
               ) : (
                 <Button size="sm" onClick={handleSaveScore}>
                   <Check className="mr-2 h-4 w-4" />
-                  Save
+                  {copy.save}
                 </Button>
               )}
             </div>
@@ -195,7 +262,7 @@ export function Scorecard() {
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="What worked? What needs to change next week?"
+                placeholder={copy.placeholder}
                 rows={5}
                 className="w-full"
               />
@@ -204,18 +271,18 @@ export function Scorecard() {
                 {savedScore?.notes ? (
                   <p className="whitespace-pre-wrap text-gray-700">{savedScore.notes}</p>
                 ) : (
-                  <p className="italic text-gray-400">No reflection notes yet.</p>
+                  <p className="italic text-gray-400">{copy.noNotes}</p>
                 )}
               </div>
             )}
           </div>
 
           <div>
-            <h4 className="mb-3 font-semibold text-gray-900">Task Breakdown</h4>
+            <h4 className="mb-3 font-semibold text-gray-900">{copy.taskBreakdown}</h4>
             {weekTodos.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-gray-50 py-8 text-center">
                 <AlertCircle className="mx-auto mb-2 h-10 w-10 text-gray-400" />
-                <p className="text-gray-600">No tasks planned for this week</p>
+                <p className="text-gray-600">{copy.noTasks}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -243,13 +310,13 @@ export function Scorecard() {
                           </div>
                           {goal && (
                             <div className="mt-1 text-xs text-gray-600">
-                              Goal: {goal.title}
+                              {copy.goal}: {goal.title}
                               {tactic && ` -> ${tactic.title}`}
                             </div>
                           )}
                         </div>
                         <div className="text-xs text-gray-600">
-                          {todo.date ? format(dateFromISO(todo.date), 'MMM d') : 'Unscheduled'}
+                          {todo.date ? format(dateFromISO(todo.date), 'MMM d') : copy.unscheduled}
                         </div>
                       </div>
                     </div>
@@ -265,9 +332,9 @@ export function Scorecard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5" />
-            Period Overview
+            {copy.overview}
           </CardTitle>
-          <CardDescription>Your execution score across all weeks in this period</CardDescription>
+          <CardDescription>{copy.overviewDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
@@ -285,13 +352,13 @@ export function Scorecard() {
                     isCurrent ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="mb-1 text-xs text-gray-600">Week {weekNum}</div>
+                  <div className="mb-1 text-xs text-gray-600">{copy.week} {weekNum}</div>
                   {score ? (
                     <div className={`text-xl font-bold ${getScoreColor(score.executionScore)}`}>{score.executionScore}%</div>
                   ) : isPast ? (
                     <div className="text-xl font-bold text-gray-400">-</div>
                   ) : (
-                    <div className="text-xs text-gray-400">Upcoming</div>
+                    <div className="text-xs text-gray-400">{copy.upcoming}</div>
                   )}
                 </button>
               );

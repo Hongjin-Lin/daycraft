@@ -1,8 +1,13 @@
 
   import { createRoot } from "react-dom/client";
   import App from "./App.tsx";
+  import { LanguageProvider } from "./lib/i18n.tsx";
   import "./index.css";
   import "./styles/globals.css";
 
-  createRoot(document.getElementById("root")!).render(<App />);
+  createRoot(document.getElementById("root")!).render(
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
+  );
   

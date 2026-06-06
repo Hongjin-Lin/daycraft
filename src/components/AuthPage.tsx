@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ArrowRight } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 
 export function AuthPage() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,34 @@ export function AuthPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const migrateFromLocalStorage = useStore(s => s.migrateFromLocalStorage);
+  const { language } = useLanguage();
+  const copy = language === 'zh'
+    ? {
+        signUpDescription: '创建账号，在多设备同步你的数据',
+        signInDescription: '登录以访问你的数据',
+        email: '邮箱',
+        password: '密码',
+        accountCreated: '账号已创建。请检查邮箱完成确认，然后登录。',
+        fallbackError: '发生错误',
+        loading: '加载中...',
+        signUp: '注册',
+        signIn: '登录',
+        hasAccount: '已有账号？',
+        noAccount: '还没有账号？',
+      }
+    : {
+        signUpDescription: 'Create an account to sync your data across devices',
+        signInDescription: 'Sign in to access your data',
+        email: 'Email',
+        password: 'Password',
+        accountCreated: 'Account created. Check your email to confirm it, then sign in.',
+        fallbackError: 'An error occurred',
+        loading: 'Loading...',
+        signUp: 'Sign Up',
+        signIn: 'Sign In',
+        hasAccount: 'Already have an account?',
+        noAccount: "Don't have an account?",
+      };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,14 +59,14 @@ export function AuthPage() {
         if (session) {
           await migrateFromLocalStorage();
         } else {
-          setNotice('Account created. Check your email to confirm it, then sign in.');
+          setNotice(copy.accountCreated);
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      setError(err.message || copy.fallbackError);
     } finally {
       setLoading(false);
     }
@@ -51,13 +80,13 @@ export function AuthPage() {
             <span className="text-primary">Day</span>Craft
           </CardTitle>
           <CardDescription>
-            {isSignUp ? 'Create an account to sync your data across devices' : 'Sign in to access your data'}
+            {isSignUp ? copy.signUpDescription : copy.signInDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{copy.email}</Label>
               <Input
                 id="email"
                 type="email"
@@ -68,7 +97,7 @@ export function AuthPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{copy.password}</Label>
               <Input
                 id="password"
                 type="password"
@@ -93,18 +122,18 @@ export function AuthPage() {
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? copy.loading : isSignUp ? copy.signUp : copy.signIn}
               {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
 
             <p className="text-sm text-center text-muted-foreground">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              {isSignUp ? copy.hasAccount : copy.noAccount}{' '}
               <button
                 type="button"
                 className="text-primary hover:underline font-medium"
                 onClick={() => { setIsSignUp(!isSignUp); setError(''); setNotice(''); }}
               >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
+                {isSignUp ? copy.signIn : copy.signUp}
               </button>
             </p>
           </form>

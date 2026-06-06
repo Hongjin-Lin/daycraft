@@ -5,16 +5,117 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { TrendingUp, Target, Calendar, Award, Activity, Zap } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { dateFromISO, daysInPeriod, daysPassedInPeriod, periodPercentComplete, weeksInPeriod } from '../lib/period-utils';
+import { useLanguage } from '../lib/i18n';
 
 export function Analytics() {
+  const { language } = useLanguage();
   const { periods, activePeriodId, todos, weeklyScores } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
+  const copy = language === 'zh'
+    ? {
+        noPeriod: '请先在总览页创建一个规划周期。',
+        title: '数据分析',
+        description: '查看当前周期的进展、执行和趋势。',
+        timeProgress: '时间进度',
+        daysRemaining: '天剩余',
+        goalProgress: '目标进度',
+        goalsComplete: (done: number, total: number) => `${done} / ${total} 个目标完成`,
+        ahead: '领先',
+        behind: '落后',
+        onTrack: '按计划',
+        executionScore: '执行分',
+        weeksTracked: '周已记录',
+        startReview: '先做一次周复盘',
+        excellent: '优秀',
+        good: '良好',
+        needsPlan: '需要收紧计划',
+        predictedOutcome: '预测结果',
+        projectedFinal: '预计最终进度',
+        currentPace: '基于当前节奏',
+        weeklyTrend: '周执行趋势',
+        weeklyTrendDescription: '每周执行分与 85% 目标对比',
+        target: '目标 (85%)',
+        actualScore: '实际分',
+        goalDistribution: '目标进度分布',
+        goalDistributionDescription: '目标完成状态拆分',
+        noGoals: '暂无目标可显示',
+        cumulative: '累计任务完成',
+        cumulativeDescription: '实际完成率与预期对比',
+        day: '天',
+        completion: '完成率 %',
+        expected: '预期',
+        actual: '实际',
+        recentActivity: '最近活动（28 天）',
+        recentActivityDescription: '每日任务完成率',
+        completionLabel: '完成率',
+        tasks: '任务',
+        insights: '洞察与建议',
+        behindTitle: '进度落后',
+        behindBody: (delta: number) => `你比预期节奏落后 ${Math.abs(delta)}%。建议复盘目标，聚焦高优先级策略。`,
+        aheadTitle: '进度领先',
+        aheadBody: (delta: number) => `做得很好！你比预期节奏领先 ${delta}%。继续保持。`,
+        lowExecutionTitle: '执行分偏低',
+        lowExecutionBody: (score: number) => `当前平均执行分为 ${score}%。建议把每周承诺缩小到更现实的范围。`,
+        noCompletedTitle: '还没有完成目标',
+        noCompletedBody: (days: number) => `已经进行 ${days} 天仍未完成目标。可以把目标拆成更小、更容易推进的策略。`,
+        outstandingTitle: '表现出色',
+        outstandingBody: '执行和进度都很高，继续保持这个节奏。',
+      }
+    : {
+        noPeriod: 'Please create a planning period first from the dashboard.',
+        title: 'Analytics Dashboard',
+        description: 'Comprehensive insights and predictions for your active period',
+        timeProgress: 'Time Progress',
+        daysRemaining: 'days remaining',
+        goalProgress: 'Goal Progress',
+        goalsComplete: (done: number, total: number) => `${done} of ${total} goals complete`,
+        ahead: 'ahead',
+        behind: 'behind',
+        onTrack: 'On track',
+        executionScore: 'Execution Score',
+        weeksTracked: 'weeks tracked',
+        startReview: 'Start with a weekly review',
+        excellent: 'Excellent',
+        good: 'Good',
+        needsPlan: 'Needs a tighter plan',
+        predictedOutcome: 'Predicted Outcome',
+        projectedFinal: 'Projected final progress',
+        currentPace: 'Based on current pace',
+        weeklyTrend: 'Weekly Execution Trend',
+        weeklyTrendDescription: 'Your weekly execution scores vs. 85% target',
+        target: 'Target (85%)',
+        actualScore: 'Actual Score',
+        goalDistribution: 'Goal Progress Distribution',
+        goalDistributionDescription: 'Breakdown of goal completion status',
+        noGoals: 'No goals to display',
+        cumulative: 'Cumulative Task Completion',
+        cumulativeDescription: 'Actual vs. expected completion rate over time',
+        day: 'Day',
+        completion: 'Completion %',
+        expected: 'Expected',
+        actual: 'Actual',
+        recentActivity: 'Recent Activity (Last 28 Days)',
+        recentActivityDescription: 'Daily task completion rates',
+        completionLabel: 'Completion',
+        tasks: 'Tasks',
+        insights: 'Insights & Recommendations',
+        behindTitle: 'Behind Schedule',
+        behindBody: (delta: number) => `You're ${Math.abs(delta)}% behind the expected pace. Consider reviewing your goals and focusing on high-priority tactics.`,
+        aheadTitle: 'Ahead of Schedule',
+        aheadBody: (delta: number) => `Great work! You're ${delta}% ahead of the expected pace. Keep up the momentum!`,
+        lowExecutionTitle: 'Low Execution Score',
+        lowExecutionBody: (score: number) => `Your average execution score is ${score}%. Aim for at least 85% to stay on track. Review your weekly commitments and ensure they're realistic.`,
+        noCompletedTitle: 'No Completed Goals Yet',
+        noCompletedBody: (days: number) => `You're ${days} days in without completing a goal. Consider breaking down your goals into smaller, more achievable tactics.`,
+        outstandingTitle: 'Outstanding Performance',
+        outstandingBody: "You're crushing it! Both your execution and progress scores are excellent. This is what winning looks like!",
+      };
   
   if (!activePeriod) {
     return (
       <div className="text-center py-12">
         <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">Please create a planning period first from the dashboard.</p>
+        <p className="text-gray-600">{copy.noPeriod}</p>
       </div>
     );
   }
@@ -119,22 +220,22 @@ export function Analytics() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h2>
-        <p className="text-gray-600">Comprehensive insights and predictions for your active period</p>
+        <h2 className="mb-1 text-2xl font-bold text-gray-900 sm:mb-2 sm:text-3xl">{copy.title}</h2>
+        <p className="hidden text-gray-600 sm:block">{copy.description}</p>
       </div>
       
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Time Progress
+              {copy.timeProgress}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-gray-900 mb-1">{percentComplete}%</div>
-            <p className="text-sm text-gray-600">{daysRemaining} days remaining</p>
+            <p className="text-sm text-gray-600">{daysRemaining} {copy.daysRemaining}</p>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all"
@@ -148,27 +249,27 @@ export function Analytics() {
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
               <Target className="w-4 h-4" />
-              Goal Progress
+              {copy.goalProgress}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-gray-900 mb-1">{averageProgress}%</div>
             <p className="text-sm text-gray-600">
-              {completedGoals} of {totalGoals} goals complete
+              {copy.goalsComplete(completedGoals, totalGoals)}
             </p>
             <div className="flex items-center gap-2 mt-3">
               {progressDelta > 0 ? (
                 <>
                   <TrendingUp className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-600">+{progressDelta}% ahead</span>
+                  <span className="text-sm font-medium text-green-600">+{progressDelta}% {copy.ahead}</span>
                 </>
               ) : progressDelta < 0 ? (
                 <>
                   <TrendingUp className="w-4 h-4 text-red-600 rotate-180" />
-                  <span className="text-sm font-medium text-red-600">{progressDelta}% behind</span>
+                  <span className="text-sm font-medium text-red-600">{progressDelta}% {copy.behind}</span>
                 </>
               ) : (
-                <span className="text-sm font-medium text-gray-600">On track</span>
+                <span className="text-sm font-medium text-gray-600">{copy.onTrack}</span>
               )}
             </div>
           </CardContent>
@@ -178,7 +279,7 @@ export function Analytics() {
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
               <Award className="w-4 h-4" />
-              Execution Score
+              {copy.executionScore}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -191,15 +292,15 @@ export function Analytics() {
             }`}>
               {periodScores.length > 0 ? `${averageExecutionScore}%` : '—'}
             </div>
-            <p className="text-sm text-gray-600">{periodScores.length} weeks tracked</p>
+            <p className="text-sm text-gray-600">{periodScores.length} {copy.weeksTracked}</p>
             <Badge className="mt-3" variant={averageExecutionScore >= 85 ? 'default' : 'secondary'}>
               {periodScores.length === 0
-                ? 'Start with a weekly review'
+                ? copy.startReview
                 : averageExecutionScore >= 85
-                  ? 'Excellent'
+                  ? copy.excellent
                   : averageExecutionScore >= 65
-                    ? 'Good'
-                    : 'Needs a tighter plan'}
+                    ? copy.good
+                    : copy.needsPlan}
             </Badge>
           </CardContent>
         </Card>
@@ -208,7 +309,7 @@ export function Analytics() {
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
-              Predicted Outcome
+              {copy.predictedOutcome}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -219,8 +320,8 @@ export function Analytics() {
             }`}>
               {Math.round(predictedFinalProgress)}%
             </div>
-            <p className="text-sm text-gray-600">Projected final progress</p>
-            <p className="text-xs text-gray-500 mt-2">Based on current pace</p>
+            <p className="text-sm text-gray-600">{copy.projectedFinal}</p>
+            <p className="mt-2 hidden text-xs text-gray-500 sm:block">{copy.currentPace}</p>
           </CardContent>
         </Card>
       </div>
@@ -230,8 +331,8 @@ export function Analytics() {
         {/* Weekly Execution Trend */}
         <Card>
           <CardHeader>
-            <CardTitle>Weekly Execution Trend</CardTitle>
-            <CardDescription>Your weekly execution scores vs. 85% target</CardDescription>
+            <CardTitle>{copy.weeklyTrend}</CardTitle>
+            <CardDescription>{copy.weeklyTrendDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -241,8 +342,8 @@ export function Analytics() {
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="target" fill="#94a3b8" name="Target (85%)" />
-                <Bar dataKey="score" fill="#3b82f6" name="Actual Score" />
+                <Bar dataKey="target" fill="#94a3b8" name={copy.target} />
+                <Bar dataKey="score" fill="#3b82f6" name={copy.actualScore} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -251,8 +352,8 @@ export function Analytics() {
         {/* Goal Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Goal Progress Distribution</CardTitle>
-            <CardDescription>Breakdown of goal completion status</CardDescription>
+            <CardTitle>{copy.goalDistribution}</CardTitle>
+            <CardDescription>{copy.goalDistributionDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             {goalDistributionData.length > 0 ? (
@@ -277,7 +378,7 @@ export function Analytics() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-gray-500">
-                No goals to display
+                {copy.noGoals}
               </div>
             )}
           </CardContent>
@@ -289,19 +390,19 @@ export function Analytics() {
         {/* Cumulative Progress */}
         <Card>
           <CardHeader>
-            <CardTitle>Cumulative Task Completion</CardTitle>
-            <CardDescription>Actual vs. expected completion rate over time</CardDescription>
+            <CardTitle>{copy.cumulative}</CardTitle>
+            <CardDescription>{copy.cumulativeDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={cumulativeData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" label={{ value: 'Day', position: 'insideBottom', offset: -5 }} />
-                <YAxis domain={[0, 100]} label={{ value: 'Completion %', angle: -90, position: 'insideLeft' }} />
+                <XAxis dataKey="day" label={{ value: copy.day, position: 'insideBottom', offset: -5 }} />
+                <YAxis domain={[0, 100]} label={{ value: copy.completion, angle: -90, position: 'insideLeft' }} />
                 <Tooltip />
                 <Legend />
-                <Area type="monotone" dataKey="expected" stroke="#94a3b8" fill="#e2e8f0" name="Expected" />
-                <Area type="monotone" dataKey="actual" stroke="#3b82f6" fill="#93c5fd" name="Actual" />
+                <Area type="monotone" dataKey="expected" stroke="#94a3b8" fill="#e2e8f0" name={copy.expected} />
+                <Area type="monotone" dataKey="actual" stroke="#3b82f6" fill="#93c5fd" name={copy.actual} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -310,8 +411,8 @@ export function Analytics() {
         {/* Daily Completion Heatmap */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity (Last 28 Days)</CardTitle>
-            <CardDescription>Daily task completion rates</CardDescription>
+            <CardTitle>{copy.recentActivity}</CardTitle>
+            <CardDescription>{copy.recentActivityDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -331,8 +432,8 @@ export function Analytics() {
                       return (
                         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
                           <p className="font-semibold">{payload[0].payload.date}</p>
-                          <p className="text-sm text-gray-600">Completion: {payload[0].value}%</p>
-                          <p className="text-sm text-gray-600">Tasks: {payload[0].payload.tasks}</p>
+                          <p className="text-sm text-gray-600">{copy.completionLabel}: {payload[0].value}%</p>
+                          <p className="text-sm text-gray-600">{copy.tasks}: {payload[0].payload.tasks}</p>
                         </div>
                       );
                     }
@@ -345,7 +446,7 @@ export function Analytics() {
                   stroke="#3b82f6" 
                   strokeWidth={2}
                   dot={{ fill: '#3b82f6', r: 4 }}
-                  name="Completion Rate"
+                  name={copy.completionLabel}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -358,51 +459,51 @@ export function Analytics() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Insights & Recommendations
+            {copy.insights}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {averageProgress < expectedProgress && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h4 className="font-semibold text-yellow-900 mb-1">⚠️ Behind Schedule</h4>
+              <h4 className="font-semibold text-yellow-900 mb-1">⚠️ {copy.behindTitle}</h4>
               <p className="text-sm text-yellow-800">
-                You're {Math.abs(progressDelta)}% behind the expected pace. Consider reviewing your goals and focusing on high-priority tactics.
+                {copy.behindBody(progressDelta)}
               </p>
             </div>
           )}
           
           {averageProgress > expectedProgress && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-green-900 mb-1">🎉 Ahead of Schedule</h4>
+              <h4 className="font-semibold text-green-900 mb-1">🎉 {copy.aheadTitle}</h4>
               <p className="text-sm text-green-800">
-                Great work! You're {progressDelta}% ahead of the expected pace. Keep up the momentum!
+                {copy.aheadBody(progressDelta)}
               </p>
             </div>
           )}
           
           {periodScores.length > 0 && averageExecutionScore < 65 && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <h4 className="font-semibold text-red-900 mb-1">🚨 Low Execution Score</h4>
+              <h4 className="font-semibold text-red-900 mb-1">🚨 {copy.lowExecutionTitle}</h4>
               <p className="text-sm text-red-800">
-                Your average execution score is {averageExecutionScore}%. Aim for at least 85% to stay on track. Review your weekly commitments and ensure they're realistic.
+                {copy.lowExecutionBody(averageExecutionScore)}
               </p>
             </div>
           )}
           
           {completedGoals === 0 && totalGoals > 0 && daysPassed > 28 && (
             <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <h4 className="font-semibold text-orange-900 mb-1">💡 No Completed Goals Yet</h4>
+              <h4 className="font-semibold text-orange-900 mb-1">💡 {copy.noCompletedTitle}</h4>
               <p className="text-sm text-orange-800">
-                You're {daysPassed} days in without completing a goal. Consider breaking down your goals into smaller, more achievable tactics.
+                {copy.noCompletedBody(daysPassed)}
               </p>
             </div>
           )}
           
           {averageExecutionScore >= 85 && averageProgress >= 85 && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-1">⭐ Outstanding Performance</h4>
+              <h4 className="font-semibold text-blue-900 mb-1">⭐ {copy.outstandingTitle}</h4>
               <p className="text-sm text-blue-800">
-                You're crushing it! Both your execution and progress scores are excellent. This is what winning looks like!
+                {copy.outstandingBody}
               </p>
             </div>
           )}

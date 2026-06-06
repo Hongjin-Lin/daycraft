@@ -5,6 +5,7 @@ import { useStore } from '../lib/store';
 import { WeekPeriod } from '../lib/types';
 import { dateFromISO, daysInPeriod, endDateForWeeks, formatISODate, weeksInPeriod } from '../lib/period-utils';
 import { Button } from './ui/button';
+import { useLanguage } from '../lib/i18n';
 
 interface PeriodSettingsProps {
   period: WeekPeriod;
@@ -12,12 +13,13 @@ interface PeriodSettingsProps {
 }
 
 const presets = [
-  { label: '6 weeks', weeks: 6 },
-  { label: '12 weeks', weeks: 12 },
-  { label: '16 weeks', weeks: 16 },
+  { weeks: 6 },
+  { weeks: 12 },
+  { weeks: 16 },
 ];
 
 export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps) {
+  const { language } = useLanguage();
   const periods = useStore(s => s.periods);
   const updatePeriod = useStore(s => s.updatePeriod);
   const createPeriod = useStore(s => s.createPeriod);
@@ -29,6 +31,63 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
   const [saving, setSaving] = useState(false);
   const [busyPeriodId, setBusyPeriodId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const copy = language === 'zh'
+    ? {
+        trigger: '周期设置',
+        close: '关闭周期设置',
+        title: '周期',
+        description: '设置任意规划范围，不限 12 周。',
+        startDate: '开始日期',
+        endDate: '结束日期',
+        length: '长度',
+        weeks: '周',
+        days: '天',
+        history: '周期历史',
+        historyDescription: '切换旧周期，或删除不再需要的周期。',
+        noPeriods: '暂无保存的周期。',
+        active: '当前',
+        goals: '目标',
+        activate: '启用周期',
+        delete: '删除周期',
+        savePeriod: '保存周期',
+        saving: '保存中...',
+        createNew: '新建',
+        cancel: '取消',
+        invalidRange: '结束日期必须等于或晚于开始日期。',
+        saveError: '无法保存周期。',
+        createError: '无法创建周期。',
+        activateError: '无法启用周期。',
+        deleteError: '无法删除周期。',
+        deleteConfirm: (label: string) => `删除周期 ${label}？这也会删除它的目标、策略、周复盘和关联任务。`,
+      }
+    : {
+        trigger: 'Period settings',
+        close: 'Close period settings',
+        title: 'Period',
+        description: 'Set any planning range, not just 12 weeks.',
+        startDate: 'Start date',
+        endDate: 'End date',
+        length: 'Length',
+        weeks: 'weeks',
+        days: 'days',
+        history: 'Period history',
+        historyDescription: 'Switch back to an older period or delete periods you no longer need.',
+        noPeriods: 'No saved periods.',
+        active: 'Active',
+        goals: 'goals',
+        activate: 'Activate period',
+        delete: 'Delete period',
+        savePeriod: 'Save period',
+        saving: 'Saving...',
+        createNew: 'Create new',
+        cancel: 'Cancel',
+        invalidRange: 'End date must be on or after the start date.',
+        saveError: 'Could not save period.',
+        createError: 'Could not create period.',
+        activateError: 'Could not activate period.',
+        deleteError: 'Could not delete period.',
+        deleteConfirm: (label: string) => `Delete period ${label}? This also deletes its goals, tactics, weekly scores, and linked tasks.`,
+      };
 
   const sortedPeriods = useMemo(
     () => [...periods].sort((a, b) => b.startDate.getTime() - a.startDate.getTime()),
@@ -59,7 +118,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
 
   const save = async () => {
     if (preview.invalid) {
-      setError('End date must be on or after the start date.');
+      setError(copy.invalidRange);
       return;
     }
 
@@ -72,7 +131,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
       });
       setOpen(false);
     } catch (err: any) {
-      setError(err.message || 'Could not save period.');
+      setError(err.message || copy.saveError);
     } finally {
       setSaving(false);
     }
@@ -80,7 +139,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
 
   const createNew = async () => {
     if (preview.invalid) {
-      setError('End date must be on or after the start date.');
+      setError(copy.invalidRange);
       return;
     }
 
@@ -90,7 +149,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
       await createPeriod(dateFromISO(startDate), dateFromISO(endDate));
       setOpen(false);
     } catch (err: any) {
-      setError(err.message || 'Could not create period.');
+      setError(err.message || copy.createError);
     } finally {
       setSaving(false);
     }
@@ -102,7 +161,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
     try {
       await activatePeriod(periodId);
     } catch (err: any) {
-      setError(err.message || 'Could not activate period.');
+      setError(err.message || copy.activateError);
     } finally {
       setBusyPeriodId(null);
     }
@@ -110,7 +169,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
 
   const remove = async (target: WeekPeriod) => {
     const label = `${format(target.startDate, 'MMM d, yyyy')} - ${format(target.endDate, 'MMM d, yyyy')}`;
-    if (!window.confirm(`Delete period ${label}? This also deletes its goals, tactics, weekly scores, and linked tasks.`)) {
+    if (!window.confirm(copy.deleteConfirm(label))) {
       return;
     }
 
@@ -120,7 +179,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
       await deletePeriod(target.id);
       if (target.id === period.id) setOpen(false);
     } catch (err: any) {
-      setError(err.message || 'Could not delete period.');
+      setError(err.message || copy.deleteError);
     } finally {
       setBusyPeriodId(null);
     }
@@ -134,22 +193,22 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
         className={triggerClassName || 'inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-blue-200 hover:text-blue-700'}
       >
         <CalendarDays className="h-4 w-4" />
-        Period settings
+        {copy.trigger}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50">
           <button
             type="button"
-            aria-label="Close period settings"
+            aria-label={copy.close}
             className="absolute inset-0 bg-gray-950/20"
             onClick={() => setOpen(false)}
           />
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-gray-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-950">Period</h2>
-                <p className="text-sm text-gray-500">Set any planning range, not just 12 weeks.</p>
+                <h2 className="text-lg font-semibold text-gray-950">{copy.title}</h2>
+                <p className="text-sm text-gray-500">{copy.description}</p>
               </div>
               <button
                 type="button"
@@ -163,7 +222,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
             <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm font-medium text-gray-700">
-                  <span>Start date</span>
+                  <span>{copy.startDate}</span>
                   <input
                     type="date"
                     value={startDate}
@@ -179,7 +238,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                 </label>
 
                 <label className="space-y-2 text-sm font-medium text-gray-700">
-                  <span>End date</span>
+                  <span>{copy.endDate}</span>
                   <input
                     type="date"
                     value={endDate}
@@ -190,7 +249,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
               </div>
 
               <div>
-                <div className="mb-2 text-sm font-medium text-gray-700">Length</div>
+                <div className="mb-2 text-sm font-medium text-gray-700">{copy.length}</div>
                 <div className="grid grid-cols-3 gap-2">
                   {presets.map(preset => (
                     <button
@@ -199,24 +258,24 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                       onClick={() => applyPreset(preset.weeks)}
                       className="rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                     >
-                      {preset.label}
+                      {preset.weeks} {copy.weeks}
                     </button>
                   ))}
                 </div>
                 <div className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                  {preview.weeks} weeks, {preview.days} days
+                  {preview.weeks} {copy.weeks}, {preview.days} {copy.days}
                 </div>
               </div>
 
               <div className="border-t border-gray-200 pt-5">
                 <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-gray-950">Period history</h3>
-                  <p className="mt-1 text-sm text-gray-500">Switch back to an older period or delete periods you no longer need.</p>
+                  <h3 className="text-sm font-semibold text-gray-950">{copy.history}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{copy.historyDescription}</p>
                 </div>
 
                 {sortedPeriods.length === 0 ? (
                   <div className="rounded-md border border-dashed border-gray-300 px-3 py-4 text-sm text-gray-500">
-                    No saved periods.
+                    {copy.noPeriods}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -234,12 +293,12 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                               </span>
                               {savedPeriod.active && (
                                 <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                                  Active
+                                  {copy.active}
                                 </span>
                               )}
                             </div>
                             <p className="mt-1 text-xs text-gray-500">
-                              {weeksInPeriod(savedPeriod.startDate, savedPeriod.endDate)} weeks, {savedPeriod.goals.length} goals
+                              {weeksInPeriod(savedPeriod.startDate, savedPeriod.endDate)} {copy.weeks}, {savedPeriod.goals.length} {copy.goals}
                             </p>
                           </div>
 
@@ -250,7 +309,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                                 className="rounded-md p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 onClick={() => activate(savedPeriod.id)}
                                 disabled={isBusy}
-                                title="Activate period"
+                                title={copy.activate}
                               >
                                 <RotateCcw className="h-4 w-4" />
                               </button>
@@ -260,7 +319,7 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
                               className="rounded-md p-2 text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={() => remove(savedPeriod)}
                               disabled={isBusy}
-                              title="Delete period"
+                              title={copy.delete}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -281,13 +340,13 @@ export function PeriodSettings({ period, triggerClassName }: PeriodSettingsProps
 
             <div className="flex flex-col gap-3 border-t border-gray-200 px-5 py-4 sm:flex-row">
               <Button className="flex-1" onClick={save} disabled={saving || preview.invalid}>
-                {saving ? 'Saving...' : 'Save period'}
+                {saving ? copy.saving : copy.savePeriod}
               </Button>
               <Button variant="outline" onClick={createNew} disabled={saving || preview.invalid}>
-                Create new
+                {copy.createNew}
               </Button>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                {copy.cancel}
               </Button>
             </div>
           </aside>

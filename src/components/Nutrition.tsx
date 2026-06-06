@@ -17,7 +17,6 @@ import { useStore } from '../lib/store';
 import {
   calculateNutritionSummary,
   defaultNutritionTargets,
-  getNutritionSyncStatusCopy,
   getReusableFoodItems,
   mealLabels,
   type MealType,
@@ -27,6 +26,7 @@ import {
   type NutritionSyncStatus,
   type NutritionTargets,
 } from '../lib/nutrition';
+import { useLanguage, type Language } from '../lib/i18n';
 
 const bridgeUrl = 'http://localhost:8787';
 const meals: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -47,6 +47,7 @@ const emptyForm = () => ({
 type EntryForm = ReturnType<typeof emptyForm>;
 
 export function Nutrition() {
+  const { language } = useLanguage();
   const {
     nutritionEntries,
     nutritionTargets,
@@ -61,6 +62,91 @@ export function Nutrition() {
   const [targetDraft, setTargetDraft] = useState<NutritionTargets>(nutritionTargets || defaultNutritionTargets);
   const [bridgeStatus, setBridgeStatus] = useState<NutritionSyncStatus>('checking');
   const [historyQuery, setHistoryQuery] = useState('');
+  const copy = language === 'zh'
+    ? {
+        title: '健康与营养',
+        description: '记录每天的营养目标，支撑 12 周健康计划。',
+        previousDay: '前一天',
+        nextDay: '后一天',
+        calories: '热量',
+        protein: '蛋白质',
+        carbs: '碳水',
+        fat: '脂肪',
+        saveTargets: '保存目标',
+        addFood: '添加食物',
+        meal: '餐次',
+        time: '时间',
+        food: '食物',
+        foodPlaceholder: '希腊酸奶碗',
+        emoji: 'Emoji',
+        imageUrl: '图片链接',
+        imagePlaceholder: 'https://...',
+        notes: '备注',
+        recentFoods: '最近食物',
+        shown: '条',
+        searchHistory: '搜索历史',
+        searchPlaceholder: '食物、蛋白质、42g...',
+        reusableEmpty: '你记录的食物会出现在这里，方便复用。',
+        reusableNoMatch: '没有匹配的历史食物。',
+        noFoodTitle: '今天还没记录',
+        noFoodDescription: '先手动添加下一餐；AI 同步可用时会自动显示同步记录。',
+        use: '使用',
+        logAgain: '再记一次',
+        used: '使用',
+        last: '最近',
+        of: '目标',
+        left: '剩余',
+        over: '超出',
+        delete: '删除',
+        manual: '手动',
+        ai: 'AI',
+      }
+    : {
+        title: 'Health & Nutrition',
+        description: 'Track daily nutrition targets that support your 12-week health goals.',
+        previousDay: 'Previous day',
+        nextDay: 'Next day',
+        calories: 'Calories',
+        protein: 'Protein',
+        carbs: 'Carbs',
+        fat: 'Fat',
+        saveTargets: 'Save Daily Targets',
+        addFood: 'Add Food',
+        meal: 'Meal',
+        time: 'Time',
+        food: 'Food',
+        foodPlaceholder: 'Greek yogurt bowl',
+        emoji: 'Emoji',
+        imageUrl: 'Image URL',
+        imagePlaceholder: 'https://...',
+        notes: 'Notes',
+        recentFoods: 'Recent Foods',
+        shown: 'shown',
+        searchHistory: 'Search history',
+        searchPlaceholder: 'food, protein, 42g...',
+        reusableEmpty: 'Foods you log will appear here for quick reuse.',
+        reusableNoMatch: 'No previous foods match this search.',
+        noFoodTitle: 'No food logged',
+        noFoodDescription: 'Add your next meal manually. Synced entries will appear here when AI sync is available.',
+        use: 'Use',
+        logAgain: 'Log again',
+        used: 'Used',
+        last: 'Last',
+        of: 'of',
+        left: 'left',
+        over: 'over',
+        delete: 'Delete',
+        manual: 'Manual',
+        ai: 'AI',
+      };
+  const mealCopy: Record<MealType, string> = language === 'zh'
+    ? {
+        breakfast: '早餐',
+        lunch: '午餐',
+        dinner: '晚餐',
+        snack: '加餐',
+      }
+    : mealLabels;
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
@@ -223,14 +309,14 @@ export function Nutrition() {
     }));
   };
 
-  const syncStatusCopy = getNutritionSyncStatusCopy(bridgeStatus);
+  const syncStatusCopy = getSyncStatusCopy(bridgeStatus, language);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Health & Nutrition</h2>
-          <p className="text-gray-600">Track daily nutrition targets that support your 12-week health goals.</p>
+          <h2 className="mb-1 text-2xl font-bold text-gray-900 sm:mb-2 sm:text-3xl">{copy.title}</h2>
+          <p className="hidden text-gray-600 sm:block">{copy.description}</p>
         </div>
 
         <div className="flex flex-col items-start sm:items-end gap-1">
@@ -252,16 +338,16 @@ export function Nutrition() {
             )}
             {syncStatusCopy.label}
           </button>
-          <p className="max-w-xs text-xs text-gray-500 sm:text-right">{syncStatusCopy.description}</p>
+          <p className="hidden max-w-xs text-xs text-gray-500 sm:block sm:text-right">{syncStatusCopy.description}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              aria-label="Previous day"
+              aria-label={copy.previousDay}
               onClick={() => setSelectedDate(addDays(selectedDate, -1))}
               className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -279,7 +365,7 @@ export function Nutrition() {
             />
             <button
               type="button"
-              aria-label="Next day"
+              aria-label={copy.nextDay}
               onClick={() => setSelectedDate(addDays(selectedDate, 1))}
               className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -289,24 +375,28 @@ export function Nutrition() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <TargetInput
-              label="Calories"
+              label={copy.calories}
+              testId="calories"
               value={targetDraft.calories}
               onChange={(value) => updateTargets('calories', value)}
             />
             <TargetInput
-              label="Protein"
+              label={copy.protein}
+              testId="protein"
               value={targetDraft.protein}
               suffix="g"
               onChange={(value) => updateTargets('protein', value)}
             />
             <TargetInput
-              label="Carbs"
+              label={copy.carbs}
+              testId="carbs"
               value={targetDraft.carbs}
               suffix="g"
               onChange={(value) => updateTargets('carbs', value)}
             />
             <TargetInput
-              label="Fat"
+              label={copy.fat}
+              testId="fat"
               value={targetDraft.fat}
               suffix="g"
               onChange={(value) => updateTargets('fat', value)}
@@ -319,23 +409,25 @@ export function Nutrition() {
             className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             <Target className="w-4 h-4" />
-            Save Daily Targets
+            {copy.saveTargets}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <MacroCard
-          label="Calories"
+          label={copy.calories}
           value={summary.totals.calories}
           target={nutritionTargets.calories}
           remaining={summary.remaining.calories}
           progress={summary.progress.calories}
           color="#2563eb"
           icon={<Flame className="w-5 h-5" />}
+          language={language}
+          copy={copy}
         />
         <MacroCard
-          label="Protein"
+          label={copy.protein}
           value={summary.totals.protein}
           target={nutritionTargets.protein}
           remaining={summary.remaining.protein}
@@ -343,9 +435,11 @@ export function Nutrition() {
           suffix="g"
           color="#16a34a"
           icon={<Utensils className="w-5 h-5" />}
+          language={language}
+          copy={copy}
         />
         <MacroCard
-          label="Carbs"
+          label={copy.carbs}
           value={summary.totals.carbs}
           target={nutritionTargets.carbs}
           remaining={summary.remaining.carbs}
@@ -353,9 +447,11 @@ export function Nutrition() {
           suffix="g"
           color="#ea580c"
           icon={<Target className="w-5 h-5" />}
+          language={language}
+          copy={copy}
         />
         <MacroCard
-          label="Fat"
+          label={copy.fat}
           value={summary.totals.fat}
           target={nutritionTargets.fat}
           remaining={summary.remaining.fat}
@@ -363,17 +459,19 @@ export function Nutrition() {
           suffix="g"
           color="#9333ea"
           icon={<ImageIcon className="w-5 h-5" />}
+          language={language}
+          copy={copy}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Add Food</h3>
+        <div className="lg:col-span-1 rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
+          <h3 className="mb-4 text-lg font-bold text-gray-900 sm:text-xl">{copy.addFood}</h3>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Meal</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{copy.meal}</label>
                 <select
                   value={entryForm.meal}
                   onChange={(event) => updateForm({ meal: event.target.value as MealType })}
@@ -381,13 +479,13 @@ export function Nutrition() {
                 >
                   {meals.map((meal) => (
                     <option key={meal} value={meal}>
-                      {mealLabels[meal]}
+                      {mealCopy[meal]}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{copy.time}</label>
                 <input
                   type="time"
                   data-testid="nutrition-entry-time"
@@ -399,37 +497,41 @@ export function Nutrition() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Food</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{copy.food}</label>
               <input
                 type="text"
                 data-testid="nutrition-entry-name"
                 value={entryForm.name}
                 onChange={(event) => updateForm({ name: event.target.value })}
-                placeholder="Greek yogurt bowl"
+                placeholder={copy.foodPlaceholder}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <MacroInput
-                label="Calories"
+                label={copy.calories}
+                testId="calories"
                 value={entryForm.calories}
                 onChange={(value) => updateForm({ calories: value })}
               />
               <MacroInput
-                label="Protein"
+                label={copy.protein}
+                testId="protein"
                 suffix="g"
                 value={entryForm.protein}
                 onChange={(value) => updateForm({ protein: value })}
               />
               <MacroInput
-                label="Carbs"
+                label={copy.carbs}
+                testId="carbs"
                 suffix="g"
                 value={entryForm.carbs}
                 onChange={(value) => updateForm({ carbs: value })}
               />
               <MacroInput
-                label="Fat"
+                label={copy.fat}
+                testId="fat"
                 suffix="g"
                 value={entryForm.fat}
                 onChange={(value) => updateForm({ fat: value })}
@@ -438,7 +540,7 @@ export function Nutrition() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Emoji</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{copy.emoji}</label>
                 <input
                   type="text"
                   data-testid="nutrition-entry-emoji"
@@ -449,20 +551,20 @@ export function Nutrition() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{copy.imageUrl}</label>
                 <input
                   type="url"
                   data-testid="nutrition-entry-image-url"
                   value={entryForm.imageUrl}
                   onChange={(event) => updateForm({ imageUrl: event.target.value })}
-                  placeholder="https://..."
+                  placeholder={copy.imagePlaceholder}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{copy.notes}</label>
               <textarea
                 data-testid="nutrition-entry-notes"
                 value={entryForm.notes}
@@ -479,18 +581,18 @@ export function Nutrition() {
               className="inline-flex w-full items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Add Food
+              {copy.addFood}
             </button>
           </div>
 
           <div className="border-t border-gray-200 mt-6 pt-6">
             <div className="flex items-center justify-between gap-3 mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Recent Foods</h3>
-              <span className="text-sm text-gray-500">{reusableFoods.length} shown</span>
+              <h3 className="text-lg font-bold text-gray-900 sm:text-xl">{copy.recentFoods}</h3>
+              <span className="text-sm text-gray-500">{reusableFoods.length} {copy.shown}</span>
             </div>
 
             <label className="block mb-4">
-              <span className="block text-sm font-medium text-gray-700 mb-2">Search history</span>
+              <span className="block text-sm font-medium text-gray-700 mb-2">{copy.searchHistory}</span>
               <span className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white">
                 <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <input
@@ -498,16 +600,16 @@ export function Nutrition() {
                   data-testid="nutrition-history-search"
                   value={historyQuery}
                   onChange={(event) => setHistoryQuery(event.target.value)}
-                  placeholder="food, protein, 42g..."
+                  placeholder={copy.searchPlaceholder}
                   className="w-full bg-transparent focus:outline-none text-gray-900"
                 />
               </span>
             </label>
 
             {nutritionEntries.length === 0 ? (
-              <p className="text-sm text-gray-500">Foods you log will appear here for quick reuse.</p>
+              <p className="text-sm text-gray-500">{copy.reusableEmpty}</p>
             ) : reusableFoods.length === 0 ? (
-              <p className="text-sm text-gray-500">No previous foods match this search.</p>
+              <p className="text-sm text-gray-500">{copy.reusableNoMatch}</p>
             ) : (
               <div className="space-y-2">
                 {reusableFoods.map((food) => (
@@ -516,6 +618,7 @@ export function Nutrition() {
                     food={food}
                     onUse={() => handleUseReusableFood(food)}
                     onLog={() => handleLogReusableFood(food)}
+                    copy={copy}
                   />
                 ))}
               </div>
@@ -527,8 +630,8 @@ export function Nutrition() {
           {dayEntries.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
               <Utensils className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">No food logged</h3>
-              <p className="text-gray-600">Add your next meal manually. Synced entries will appear here when AI sync is available.</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{copy.noFoodTitle}</h3>
+              <p className="text-gray-600">{copy.noFoodDescription}</p>
             </div>
           ) : (
             meals.map((meal) => {
@@ -538,7 +641,7 @@ export function Nutrition() {
               return (
                 <div key={meal} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-gray-900">{mealLabels[meal]}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{mealCopy[meal]}</h3>
                     <span className="text-sm text-gray-600">
                       {entries.reduce((sum, entry) => sum + entry.calories, 0)} kcal
                     </span>
@@ -549,6 +652,7 @@ export function Nutrition() {
                         key={entry.id}
                         entry={entry}
                         onDelete={() => handleDeleteEntry(entry)}
+                        copy={copy}
                       />
                     ))}
                   </div>
@@ -562,13 +666,57 @@ export function Nutrition() {
   );
 }
 
+function getSyncStatusCopy(status: NutritionSyncStatus, language: Language) {
+  if (language === 'zh') {
+    if (status === 'connected') {
+      return {
+        label: 'AI 同步已连接',
+        description: '可从本地 AI 服务刷新同步营养记录。',
+      };
+    }
+
+    if (status === 'checking') {
+      return {
+        label: '检查 AI 同步',
+        description: '正在查找本地 AI 服务。你可以继续手动记录食物。',
+      };
+    }
+
+    return {
+      label: 'AI 同步离线',
+      description: '手动记录仍可使用；本地 AI 服务可用后会再次同步。',
+    };
+  }
+
+  if (status === 'connected') {
+    return {
+      label: 'AI sync connected',
+      description: 'Synced nutrition entries can refresh from your local AI service.',
+    };
+  }
+
+  if (status === 'checking') {
+    return {
+      label: 'Checking AI sync',
+      description: 'Looking for your local AI service. You can keep logging food manually.',
+    };
+  }
+
+  return {
+    label: 'AI sync offline',
+    description: 'Manual food logging still works. We will sync again when the local AI service is available.',
+  };
+}
+
 function TargetInput({
   label,
+  testId,
   value,
   suffix = '',
   onChange,
 }: {
   label: string;
+  testId: string;
   value: number;
   suffix?: string;
   onChange: (value: string) => void;
@@ -580,7 +728,7 @@ function TargetInput({
         <input
           type="number"
           min="0"
-          data-testid={`nutrition-target-${label.toLowerCase()}`}
+          data-testid={`nutrition-target-${testId}`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -593,11 +741,13 @@ function TargetInput({
 
 function MacroInput({
   label,
+  testId,
   value,
   suffix = '',
   onChange,
 }: {
   label: string;
+  testId: string;
   value: string;
   suffix?: string;
   onChange: (value: string) => void;
@@ -609,7 +759,7 @@ function MacroInput({
         <input
           type="number"
           min="0"
-          data-testid={`nutrition-macro-${label.toLowerCase()}`}
+          data-testid={`nutrition-macro-${testId}`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -629,6 +779,8 @@ function MacroCard({
   suffix = '',
   color,
   icon,
+  language,
+  copy,
 }: {
   label: string;
   value: number;
@@ -638,24 +790,34 @@ function MacroCard({
   suffix?: string;
   color: string;
   icon: ReactNode;
+  language: Language;
+  copy: {
+    of: string;
+    left: string;
+    over: string;
+  };
 }) {
   const remainingText =
-    remaining >= 0
-      ? `${remaining}${suffix} left`
-      : `${Math.abs(remaining)}${suffix} over`;
+    language === 'zh'
+      ? remaining >= 0
+        ? `${copy.left} ${remaining}${suffix}`
+        : `${copy.over} ${Math.abs(remaining)}${suffix}`
+      : remaining >= 0
+        ? `${remaining}${suffix} ${copy.left}`
+        : `${Math.abs(remaining)}${suffix} ${copy.over}`;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
       <div className="flex items-center justify-between mb-2">
         <span className="text-gray-600 text-sm">{label}</span>
         <span style={{ color }}>{icon}</span>
       </div>
-      <div className="text-3xl font-bold text-gray-900">
+      <div className="text-2xl font-bold text-gray-900 sm:text-3xl">
         {value}
         <span className="text-lg text-gray-500 ml-1">{suffix}</span>
       </div>
-      <div className="text-sm text-gray-500 mt-1">
-        of {target}
+      <div className="mt-1 text-xs text-gray-500 sm:text-sm">
+        {copy.of} {target}
         {suffix} · {remainingText}
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
@@ -672,10 +834,17 @@ function ReusableFoodRow({
   food,
   onUse,
   onLog,
+  copy,
 }: {
   food: ReusableFoodItem;
   onUse: () => void;
   onLog: () => void;
+  copy: {
+    use: string;
+    logAgain: string;
+    used: string;
+    last: string;
+  };
 }) {
   return (
     <div className="border border-gray-200 rounded-lg p-3">
@@ -694,7 +863,7 @@ function ReusableFoodRow({
             {food.calories} kcal · P {food.protein}g · C {food.carbs}g · F {food.fat}g
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            Used {food.timesUsed}x · Last {food.lastUsedDate}
+            {copy.used} {food.timesUsed}x · {copy.last} {food.lastUsedDate}
           </div>
         </div>
       </div>
@@ -705,7 +874,7 @@ function ReusableFoodRow({
           onClick={onUse}
           className="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-colors"
         >
-          Use
+          {copy.use}
         </button>
         <button
           type="button"
@@ -713,14 +882,26 @@ function ReusableFoodRow({
           className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          Log again
+          {copy.logAgain}
         </button>
       </div>
     </div>
   );
 }
 
-function FoodEntryRow({ entry, onDelete }: { entry: NutritionEntry; onDelete: () => void }) {
+function FoodEntryRow({
+  entry,
+  onDelete,
+  copy,
+}: {
+  entry: NutritionEntry;
+  onDelete: () => void;
+  copy: {
+    delete: string;
+    manual: string;
+    ai: string;
+  };
+}) {
   return (
     <div className="p-4 flex items-center gap-4">
       <div className="w-14 h-14 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -739,7 +920,7 @@ function FoodEntryRow({ entry, onDelete }: { entry: NutritionEntry; onDelete: ()
               entry.source === 'mcp' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
             }`}
           >
-            {entry.source === 'mcp' ? 'AI' : 'Manual'}
+            {entry.source === 'mcp' ? copy.ai : copy.manual}
           </span>
         </div>
         <div className="text-sm text-gray-600">
@@ -750,7 +931,7 @@ function FoodEntryRow({ entry, onDelete }: { entry: NutritionEntry; onDelete: ()
 
       <button
         type="button"
-        aria-label={`Delete ${entry.name}`}
+        aria-label={`${copy.delete} ${entry.name}`}
         onClick={onDelete}
         className="text-gray-400 hover:text-red-600 transition-colors"
       >

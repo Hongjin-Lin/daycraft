@@ -2,8 +2,10 @@ import { useStore } from '../lib/store';
 import { format, isWithinInterval } from 'date-fns';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { dateFromISO, getCurrentWeekNumber, periodPercentComplete, weeksInPeriod } from '../lib/period-utils';
+import { useLanguage } from '../lib/i18n';
 
 export function ProgressTracker() {
+  const { language } = useLanguage();
   const { periods, activePeriodId, todos } = useStore();
   const activePeriod = periods.find(p => p.id === activePeriodId);
   
@@ -40,16 +42,43 @@ export function ProgressTracker() {
   const weekCompletionRate = weekTodos.length > 0
     ? Math.round((completedWeekTodos / weekTodos.length) * 100)
     : 0;
+  const copy = language === 'zh'
+    ? {
+        title: '进度追踪',
+        overall: '整体进度',
+        expected: '预期',
+        week: '第',
+        of: '共',
+        thisWeek: '本周',
+        tasks: '任务',
+        completionRate: '完成率',
+        goalsBreakdown: '目标拆解',
+        noGoals: '暂无可追踪目标',
+        tactics: '策略',
+      }
+    : {
+        title: 'Progress Tracking',
+        overall: 'Overall Progress',
+        expected: 'Expected',
+        week: 'Week',
+        of: 'of',
+        thisWeek: 'This Week',
+        tasks: 'tasks',
+        completionRate: 'completion rate',
+        goalsBreakdown: 'Goals Breakdown',
+        noGoals: 'No goals to track',
+        tactics: 'tactics',
+      };
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-6">Progress Tracking</h3>
+    <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
+      <h3 className="mb-4 text-lg font-bold text-gray-900 sm:mb-6 sm:text-xl">{copy.title}</h3>
       
       <div className="space-y-6">
         {/* Overall Progress */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+            <span className="text-sm font-medium text-gray-700">{copy.overall}</span>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-gray-900">{averageProgress}%</span>
               {progressDelta > 5 ? (
@@ -77,7 +106,7 @@ export function ProgressTracker() {
           </div>
           <div className="flex justify-between mt-1">
             <span className="text-xs text-gray-500">
-              Expected: {expectedProgress}% (Week {currentWeek} of {weeksTotal})
+              {copy.expected}: {expectedProgress}% ({copy.week} {currentWeek} {copy.of} {weeksTotal})
             </span>
             <span
               className={`text-xs font-medium ${
@@ -92,9 +121,9 @@ export function ProgressTracker() {
         {/* This Week Stats */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">This Week</span>
+            <span className="text-sm font-medium text-gray-700">{copy.thisWeek}</span>
             <span className="text-lg font-bold text-gray-900">
-              {completedWeekTodos} / {weekTodos.length} tasks
+              {completedWeekTodos} / {weekTodos.length} {copy.tasks}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
@@ -104,16 +133,16 @@ export function ProgressTracker() {
             />
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {weekCompletionRate}% completion rate
+            {weekCompletionRate}% {copy.completionRate}
           </div>
         </div>
         
         {/* Goals Breakdown */}
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Goals Breakdown</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">{copy.goalsBreakdown}</h4>
           <div className="space-y-3">
             {activePeriod.goals.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">No goals to track</p>
+              <p className="text-sm text-gray-500 italic">{copy.noGoals}</p>
             ) : (
               activePeriod.goals.map((goal) => (
                 <div key={goal.id}>
@@ -136,7 +165,7 @@ export function ProgressTracker() {
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {goal.tactics.filter(t => t.completed).length} / {goal.tactics.length} tactics
+                    {goal.tactics.filter(t => t.completed).length} / {goal.tactics.length} {copy.tactics}
                   </div>
                 </div>
               ))

@@ -34,6 +34,7 @@ import {
   isTouchLongPressPointer,
   movedBeyondTouchSlop,
 } from '../lib/calendar-interaction';
+import { useLanguage, type Language } from '../lib/i18n';
 
 type ViewMode = 'day' | 'week' | 'month';
 type EventKind = 'task' | 'focus' | 'meeting' | 'personal';
@@ -177,6 +178,7 @@ function defaultMeta(index = 0): CalendarEventMeta {
 }
 
 export function Calendar() {
+  const { language } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draft, setDraft] = useState<DraftEvent | null>(null);
@@ -218,7 +220,74 @@ export function Calendar() {
     return map;
   }, [todos]);
 
-  const title = getCalendarTitle(viewMode, currentDate);
+  const copy = language === 'zh'
+    ? {
+        title: '日历',
+        description: '在日历网格中安排任务，并关联目标或策略。',
+        calendarView: '日历视图',
+        day: '日',
+        week: '周',
+        month: '月',
+        addTask: '添加任务',
+        previousPeriod: '上一个周期',
+        nextPeriod: '下一个周期',
+        monthHint: '点击日期添加任务',
+        gridHint: '拖拽选择时间块；桌面端右键、触屏长按可创建。',
+        expired: '登录已过期，请重新登录。',
+        createError: '无法创建任务，请检查网络和登录状态。',
+        createTask: '创建任务',
+        close: '关闭',
+        taskTitle: '标题',
+        taskPlaceholder: '任务标题',
+        start: '开始',
+        end: '结束',
+        type: '类型',
+        color: '颜色',
+        goal: '目标',
+        noGoal: '不关联目标',
+        tactic: '策略',
+        noTactic: '不关联策略',
+        cancel: '取消',
+        creating: '创建中...',
+        titleRequired: '请先填写任务标题。',
+      }
+    : {
+        title: 'Calendar',
+        description: 'Plan tasks in a familiar calendar grid and attach each item to goals or tactics.',
+        calendarView: 'Calendar view',
+        day: 'Day',
+        week: 'Week',
+        month: 'Month',
+        addTask: 'Add task',
+        previousPeriod: 'Previous period',
+        nextPeriod: 'Next period',
+        monthHint: 'Click a day to add a task',
+        gridHint: 'Drag to select a block. Right-click on desktop, or long-press on touch, to create.',
+        expired: 'Your session expired. Please sign in again.',
+        createError: 'Could not create the task. Check your connection and sign-in status.',
+        createTask: 'Create task',
+        close: 'Close',
+        taskTitle: 'Title',
+        taskPlaceholder: 'Task title',
+        start: 'Start',
+        end: 'End',
+        type: 'Type',
+        color: 'Color',
+        goal: 'Goal',
+        noGoal: 'No linked goal',
+        tactic: 'Tactic',
+        noTactic: 'No linked tactic',
+        cancel: 'Cancel',
+        creating: 'Creating...',
+        titleRequired: 'Add a title before creating the task.',
+      };
+  const kindLabels: Record<EventKind, string> = language === 'zh'
+    ? { task: '任务', focus: '专注', meeting: '会议', personal: '个人' }
+    : { task: 'Task', focus: 'Focus', meeting: 'Meeting', personal: 'Personal' };
+  const colorLabels: Record<EventColor, string> = language === 'zh'
+    ? { blue: '蓝色', green: '绿色', amber: '琥珀', red: '红色', purple: '紫色', gray: '灰色' }
+    : { blue: 'Blue', green: 'Green', amber: 'Amber', red: 'Red', purple: 'Purple', gray: 'Gray' };
+  const title = getCalendarTitle(viewMode, currentDate, language);
 
   const persistMeta = (next: Record<string, CalendarEventMeta>) => {
     setEventMeta(next);
@@ -382,7 +451,7 @@ export function Calendar() {
   const handleSubmitDraft = async () => {
     if (!draft || draftSaving) return;
     if (!draft.title.trim()) {
-      setDraftError('Add a title before creating the task.');
+      setDraftError(copy.titleRequired);
       return;
     }
 
@@ -412,8 +481,8 @@ export function Calendar() {
       setDraft(null);
     } catch (error: any) {
       const message = error?.message === 'Not authenticated'
-        ? 'Your session expired. Please sign in again.'
-        : error?.message || 'Could not create the task. Check your connection and sign-in status.';
+        ? copy.expired
+        : error?.message || copy.createError;
       setDraftError(message);
     } finally {
       setDraftSaving(false);
@@ -437,32 +506,32 @@ export function Calendar() {
     <div className="calendar-page">
       <section className="calendar-toolbar">
         <div>
-          <h2>Calendar</h2>
-          <p>Plan tasks in a familiar calendar grid and attach each item to goals or tactics.</p>
+          <h2>{copy.title}</h2>
+          <p>{copy.description}</p>
         </div>
         <div className="calendar-toolbar-actions">
-          <div className="calendar-view-switch" aria-label="Calendar view">
-            <ViewButton active={viewMode === 'day'} onClick={() => setViewMode('day')} icon={<ListChecks className="h-4 w-4" />} label="Day" />
-            <ViewButton active={viewMode === 'week'} onClick={() => setViewMode('week')} icon={<Columns3 className="h-4 w-4" />} label="Week" />
-            <ViewButton active={viewMode === 'month'} onClick={() => setViewMode('month')} icon={<Grid3X3 className="h-4 w-4" />} label="Month" />
+          <div className="calendar-view-switch" aria-label={copy.calendarView}>
+            <ViewButton active={viewMode === 'day'} onClick={() => setViewMode('day')} icon={<ListChecks className="h-4 w-4" />} label={copy.day} />
+            <ViewButton active={viewMode === 'week'} onClick={() => setViewMode('week')} icon={<Columns3 className="h-4 w-4" />} label={copy.week} />
+            <ViewButton active={viewMode === 'month'} onClick={() => setViewMode('month')} icon={<Grid3X3 className="h-4 w-4" />} label={copy.month} />
           </div>
           <button className="calendar-primary-button" onClick={() => openDraft(formatDateKey(currentDate))}>
             <Plus className="h-4 w-4" />
-            Add task
+            {copy.addTask}
           </button>
         </div>
       </section>
 
       <section className="calendar-shell">
         <div className="calendar-nav">
-          <button className="calendar-icon-button" onClick={() => shiftCalendar(-1)} aria-label="Previous period">
+          <button className="calendar-icon-button" onClick={() => shiftCalendar(-1)} aria-label={copy.previousPeriod}>
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div>
             <h3>{title}</h3>
-            <p>{viewMode === 'month' ? 'Click a day to add a task' : 'Drag to select a block. Right-click on desktop, or long-press on touch, to create.'}</p>
+            <p>{viewMode === 'month' ? copy.monthHint : copy.gridHint}</p>
           </div>
-          <button className="calendar-icon-button" onClick={() => shiftCalendar(1)} aria-label="Next period">
+          <button className="calendar-icon-button" onClick={() => shiftCalendar(1)} aria-label={copy.nextPeriod}>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -509,13 +578,26 @@ export function Calendar() {
             setDraftError('');
             setDraft(null);
           }}
+          copy={copy}
+          kindLabels={kindLabels}
+          colorLabels={colorLabels}
         />
       )}
     </div>
   );
 }
 
-function getCalendarTitle(viewMode: ViewMode, currentDate: Date) {
+function getCalendarTitle(viewMode: ViewMode, currentDate: Date, language: Language) {
+  if (language === 'zh') {
+    if (viewMode === 'day') return format(currentDate, 'yyyy年M月d日');
+    if (viewMode === 'week') {
+      const start = startOfWeek(currentDate);
+      const end = endOfWeek(currentDate);
+      return `${format(start, 'M月d日')} - ${format(end, 'M月d日 yyyy')}`;
+    }
+    return format(currentDate, 'yyyy年M月');
+  }
+
   if (viewMode === 'day') return format(currentDate, 'EEEE, MMMM d, yyyy');
   if (viewMode === 'week') {
     const start = startOfWeek(currentDate);
@@ -784,6 +866,9 @@ function EventDraftPanel({
   onChange,
   onSubmit,
   onCancel,
+  copy,
+  kindLabels,
+  colorLabels,
 }: {
   draft: DraftEvent;
   error: string;
@@ -792,6 +877,24 @@ function EventDraftPanel({
   onChange: (draft: DraftEvent) => void;
   onSubmit: () => void | Promise<void>;
   onCancel: () => void;
+  copy: {
+    createTask: string;
+    close: string;
+    taskTitle: string;
+    taskPlaceholder: string;
+    start: string;
+    end: string;
+    type: string;
+    color: string;
+    goal: string;
+    noGoal: string;
+    tactic: string;
+    noTactic: string;
+    cancel: string;
+    creating: string;
+  };
+  kindLabels: Record<EventKind, string>;
+  colorLabels: Record<EventColor, string>;
 }) {
   const selectedGoal = activePeriod?.goals.find(goal => goal.id === draft.goalId);
 
@@ -814,39 +917,39 @@ function EventDraftPanel({
       >
         <div className="calendar-form-header">
           <div>
-            <h3>Create task</h3>
+            <h3>{copy.createTask}</h3>
             <p>{format(new Date(`${draft.date}T00:00:00`), 'EEEE, MMM d')}</p>
           </div>
-          <button type="button" className="calendar-icon-button" onClick={onCancel}>x</button>
+          <button type="button" className="calendar-icon-button" onClick={onCancel} aria-label={copy.close}>x</button>
         </div>
 
         <label>
-          Title
-          <input value={draft.title} onChange={event => update({ title: event.target.value })} placeholder="Task title" autoFocus />
+          {copy.taskTitle}
+          <input value={draft.title} onChange={event => update({ title: event.target.value })} placeholder={copy.taskPlaceholder} autoFocus />
         </label>
 
         <div className="calendar-form-row">
           <label>
-            Start
+            {copy.start}
             <input type="time" value={draft.startTime} onChange={event => update({ startTime: event.target.value })} />
           </label>
           <label>
-            End
+            {copy.end}
             <input type="time" value={draft.endTime} onChange={event => update({ endTime: event.target.value })} />
           </label>
         </div>
 
         <div className="calendar-form-row">
           <label>
-            Type
+            {copy.type}
             <select value={draft.kind} onChange={event => update({ kind: event.target.value as EventKind })}>
-              {KIND_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              {KIND_OPTIONS.map(option => <option key={option.value} value={option.value}>{kindLabels[option.value]}</option>)}
             </select>
           </label>
           <label>
-            Color
+            {copy.color}
             <select value={draft.color} onChange={event => update({ color: event.target.value as EventColor })}>
-              {COLOR_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              {COLOR_OPTIONS.map(option => <option key={option.value} value={option.value}>{colorLabels[option.value]}</option>)}
             </select>
           </label>
         </div>
@@ -854,17 +957,17 @@ function EventDraftPanel({
         {activePeriod && activePeriod.goals.length > 0 && (
           <>
             <label>
-              Goal
+              {copy.goal}
               <select value={draft.goalId} onChange={event => update({ goalId: event.target.value, tacticId: '' })}>
-                <option value="">No linked goal</option>
+                <option value="">{copy.noGoal}</option>
                 {activePeriod.goals.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}
               </select>
             </label>
             {selectedGoal && selectedGoal.tactics.length > 0 && (
               <label>
-                Tactic
+                {copy.tactic}
                 <select value={draft.tacticId} onChange={event => update({ tacticId: event.target.value })}>
-                  <option value="">No linked tactic</option>
+                  <option value="">{copy.noTactic}</option>
                   {selectedGoal.tactics.map(tactic => <option key={tactic.id} value={tactic.id}>{tactic.title}</option>)}
                 </select>
               </label>
@@ -875,9 +978,9 @@ function EventDraftPanel({
         {error && <div className="calendar-form-error">{error}</div>}
 
         <div className="calendar-form-actions">
-          <button type="button" className="calendar-secondary-button" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button type="button" className="calendar-secondary-button" onClick={onCancel} disabled={saving}>{copy.cancel}</button>
           <button type="submit" className="calendar-primary-button" disabled={saving}>
-            {saving ? 'Creating...' : 'Create task'}
+            {saving ? copy.creating : copy.createTask}
           </button>
         </div>
       </form>

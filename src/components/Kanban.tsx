@@ -23,6 +23,7 @@ import {
   type TodoCategory,
   type TodoKind,
 } from '../lib/todo-utils';
+import { useLanguage, type Language } from '../lib/i18n';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import {
@@ -57,10 +58,12 @@ const emptyForm: TaskFormState = {
   tacticId: '',
 };
 
-function displayDate(date?: string) {
-  if (!date) return 'Unscheduled';
+function displayDate(date?: string, language: Language = 'en') {
+  if (!date) return language === 'zh' ? '未安排' : 'Unscheduled';
 
-  return format(parseISO(date), 'MMM d, yyyy');
+  return language === 'zh'
+    ? format(parseISO(date), 'yyyy/M/d')
+    : format(parseISO(date), 'MMM d, yyyy');
 }
 
 function formFromTodo(todo: Todo): TaskFormState {
@@ -77,6 +80,7 @@ function formFromTodo(todo: Todo): TaskFormState {
 }
 
 export function Kanban() {
+  const { language } = useLanguage();
   const {
     todos,
     periods,
@@ -92,6 +96,97 @@ export function Kanban() {
   const [formError, setFormError] = useState<TaskFormError | null>(null);
   const [draggingTodoId, setDraggingTodoId] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const copy = language === 'zh'
+    ? {
+        title: '看板',
+        description: '按类别管理任务和截止事项。',
+        addCard: '添加卡片',
+        active: '进行中',
+        emptyColumn: '空',
+        emptyColumnLong: '这里还没有卡片。点 + 或拖入卡片。',
+        archive: '归档',
+        completedTasks: (count: number) => `${count} 个已完成任务`,
+        hide: '隐藏',
+        show: '显示',
+        emptyArchive: '完成的任务会显示在这里。',
+        editCard: '编辑卡片',
+        cardDialogTitle: '添加卡片',
+        cardDialogDescription: '截止卡片需要日期；普通任务可以不安排日期。',
+        titleLabel: '标题',
+        titlePlaceholder: '任务标题...',
+        type: '类型',
+        category: '类别',
+        dateDeadline: '日期 / 截止日',
+        goal: '目标',
+        noGoal: '无目标',
+        tactic: '策略',
+        noTactic: '无策略',
+        cancel: '取消',
+        saveChanges: '保存',
+        titleRequired: '任务标题不能为空。',
+        deadlineRequired: '截止卡片需要填写截止日期。',
+        addTo: '添加卡片到',
+        complete: '完成',
+        move: '移动',
+        moveCategory: '移动类别',
+        edit: '编辑',
+        delete: '删除',
+        reopen: '重新打开',
+        completed: '完成于',
+        recently: '最近',
+      }
+    : {
+        title: 'Kanban',
+        description: 'Maintain active tasks and deadlines by category.',
+        addCard: 'Add Card',
+        active: 'active',
+        emptyColumn: 'Empty',
+        emptyColumnLong: 'No active cards here. Use + or drop a card.',
+        archive: 'Archive',
+        completedTasks: (count: number) => `${count} completed task${count === 1 ? '' : 's'}`,
+        hide: 'Hide',
+        show: 'Show',
+        emptyArchive: 'Completed tasks will appear here.',
+        editCard: 'Edit Card',
+        cardDialogTitle: 'Add Card',
+        cardDialogDescription: 'Deadline cards require a deadline. Task cards can stay unscheduled.',
+        titleLabel: 'Title',
+        titlePlaceholder: 'Task title...',
+        type: 'Type',
+        category: 'Category',
+        dateDeadline: 'Date / Deadline',
+        goal: 'Goal',
+        noGoal: 'No goal',
+        tactic: 'Tactic',
+        noTactic: 'No tactic',
+        cancel: 'Cancel',
+        saveChanges: 'Save Changes',
+        titleRequired: 'Task title is required.',
+        deadlineRequired: 'Deadline cards require a deadline date.',
+        addTo: 'Add card to',
+        complete: 'Complete',
+        move: 'Move',
+        moveCategory: 'Move category',
+        edit: 'Edit',
+        delete: 'Delete',
+        reopen: 'Reopen',
+        completed: 'Completed',
+        recently: 'recently',
+      };
+  const categoryLabels: Record<TodoCategory, string> = language === 'zh'
+    ? {
+        chore: '杂务',
+        general: '通用',
+        academic: '学习',
+        health: '健康',
+      }
+    : TODO_CATEGORY_LABELS;
+  const kindLabels: Record<TodoKind, string> = language === 'zh'
+    ? {
+        todo: '任务',
+        ddl: '截止',
+      }
+    : TODO_KIND_LABELS;
 
   const formErrorId = 'kanban-card-form-error';
   const activePeriod = periods.find((period) => period.id === activePeriodId);
@@ -127,14 +222,14 @@ export function Kanban() {
   const saveTask = () => {
     const title = form.title.trim();
     if (!title) {
-      setFormError({ field: 'title', message: 'Task title is required.' });
+      setFormError({ field: 'title', message: copy.titleRequired });
       return;
     }
 
     if (form.kind === 'ddl' && !form.date) {
       setFormError({
         field: 'date',
-        message: 'Deadline cards require a deadline date.',
+        message: copy.deadlineRequired,
       });
       return;
     }
@@ -177,24 +272,22 @@ export function Kanban() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Kanban</h2>
-          <p className="text-gray-600">
-            Maintain active tasks and deadlines by category.
-          </p>
+          <h2 className="mb-1 text-2xl font-bold text-gray-900 sm:mb-2 sm:text-3xl">{copy.title}</h2>
+          <p className="hidden text-gray-600 sm:block">{copy.description}</p>
         </div>
         <Button
           onClick={() => openCreateDialog()}
           className="w-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Add Card
+          {copy.addCard}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         {TODO_CATEGORIES.map((category) => {
           const columnTodos = activeTodos.filter((todo) => todo.category === category);
-          const categoryLabel = TODO_CATEGORY_LABELS[category];
+          const categoryLabel = categoryLabels[category];
           const columnBodyClass =
             columnTodos.length === 0
               ? 'p-3'
@@ -217,14 +310,14 @@ export function Kanban() {
                     {categoryLabel}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {columnTodos.length} active
+                    {columnTodos.length} {copy.active}
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  aria-label={`Add card to ${categoryLabel}`}
-                  title={`Add card to ${categoryLabel}`}
+                  aria-label={`${copy.addTo} ${categoryLabel}`}
+                  title={`${copy.addTo} ${categoryLabel}`}
                   onClick={() => openCreateDialog(category)}
                 >
                   <Plus className="w-4 h-4" />
@@ -234,7 +327,8 @@ export function Kanban() {
               <div className={columnBodyClass}>
                 {columnTodos.length === 0 ? (
                   <div className="rounded-md border border-dashed border-gray-300 px-3 py-2 text-center text-sm text-gray-500">
-                    No active cards here. Use + or drop a card.
+                    <span className="sm:hidden">{copy.emptyColumn}</span>
+                    <span className="hidden sm:inline">{copy.emptyColumnLong}</span>
                   </div>
                 ) : (
                   columnTodos.map((todo) => (
@@ -248,6 +342,10 @@ export function Kanban() {
                       onEdit={() => openEditDialog(todo)}
                       onMove={(nextCategory) => moveTodoToCategory(todo.id, nextCategory)}
                       onDragStart={() => setDraggingTodoId(todo.id)}
+                      categoryLabels={categoryLabels}
+                      kindLabels={kindLabels}
+                      language={language}
+                      copy={copy}
                     />
                   ))
                 )}
@@ -266,14 +364,14 @@ export function Kanban() {
           <div className="flex items-center gap-3">
             <Archive className="w-5 h-5 text-gray-500" />
             <div>
-              <h3 className="font-semibold text-gray-900">Archive</h3>
+              <h3 className="font-semibold text-gray-900">{copy.archive}</h3>
               <p className="text-sm text-gray-500">
-                {archivedTodos.length} completed task{archivedTodos.length === 1 ? '' : 's'}
+                {copy.completedTasks(archivedTodos.length)}
               </p>
             </div>
           </div>
           <span className="text-sm font-medium text-blue-600">
-            {archiveOpen ? 'Hide' : 'Show'}
+            {archiveOpen ? copy.hide : copy.show}
           </span>
         </button>
 
@@ -281,7 +379,7 @@ export function Kanban() {
           <div className="border-t border-gray-200 p-3">
             {archivedTodos.length === 0 ? (
               <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                Completed tasks will appear here.
+                {copy.emptyArchive}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -293,6 +391,10 @@ export function Kanban() {
                     tacticTitle={tacticForTodo(todo)?.title}
                     onReopen={() => toggleTodo(todo.id)}
                     onDelete={() => deleteTodo(todo.id)}
+                    categoryLabels={categoryLabels}
+                    kindLabels={kindLabels}
+                    language={language}
+                    copy={copy}
                   />
                 ))}
               </div>
@@ -304,15 +406,15 @@ export function Kanban() {
       <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeDialog())}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTodo ? 'Edit Card' : 'Add Card'}</DialogTitle>
+            <DialogTitle>{editingTodo ? copy.editCard : copy.cardDialogTitle}</DialogTitle>
             <DialogDescription>
-              Deadline cards require a deadline. Task cards can stay unscheduled.
+              {copy.cardDialogDescription}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-gray-700">Title</span>
+              <span className="mb-1 block text-sm font-medium text-gray-700">{copy.titleLabel}</span>
               <input
                 type="text"
                 value={form.title}
@@ -322,13 +424,13 @@ export function Kanban() {
                 aria-invalid={titleHasError ? 'true' : undefined}
                 aria-describedby={titleHasError ? formErrorId : undefined}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                placeholder="Task title..."
+                placeholder={copy.titlePlaceholder}
               />
             </label>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">Type</span>
+                <span className="mb-1 block text-sm font-medium text-gray-700">{copy.type}</span>
                 <select
                   value={form.kind}
                   onChange={(event) =>
@@ -341,14 +443,14 @@ export function Kanban() {
                 >
                   {TODO_KINDS.map((kind) => (
                     <option key={kind} value={kind}>
-                      {TODO_KIND_LABELS[kind]}
+                      {kindLabels[kind]}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">Category</span>
+                <span className="mb-1 block text-sm font-medium text-gray-700">{copy.category}</span>
                 <select
                   value={form.category}
                   onChange={(event) =>
@@ -361,7 +463,7 @@ export function Kanban() {
                 >
                   {TODO_CATEGORIES.map((category) => (
                     <option key={category} value={category}>
-                      {TODO_CATEGORY_LABELS[category]}
+                      {categoryLabels[category]}
                     </option>
                   ))}
                 </select>
@@ -370,7 +472,7 @@ export function Kanban() {
 
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-gray-700">
-                Date / Deadline
+                {copy.dateDeadline}
               </span>
               <input
                 type="date"
@@ -388,7 +490,7 @@ export function Kanban() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-gray-700">
-                    Goal
+                    {copy.goal}
                   </span>
                   <select
                     value={form.goalId}
@@ -401,7 +503,7 @@ export function Kanban() {
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">No goal</option>
+                    <option value="">{copy.noGoal}</option>
                     {activePeriod.goals.map((goal) => (
                       <option key={goal.id} value={goal.id}>
                         {goal.title}
@@ -412,7 +514,7 @@ export function Kanban() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-gray-700">
-                    Tactic
+                    {copy.tactic}
                   </span>
                   <select
                     value={form.tacticId}
@@ -425,7 +527,7 @@ export function Kanban() {
                     disabled={!selectedGoal || selectedGoal.tactics.length === 0}
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
                   >
-                    <option value="">No tactic</option>
+                    <option value="">{copy.noTactic}</option>
                     {selectedGoal?.tactics.map((tactic) => (
                       <option key={tactic.id} value={tactic.id}>
                         {tactic.title}
@@ -449,10 +551,10 @@ export function Kanban() {
 
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
-              Cancel
+              {copy.cancel}
             </Button>
             <Button onClick={saveTask}>
-              {editingTodo ? 'Save Changes' : 'Add Card'}
+              {editingTodo ? copy.saveChanges : copy.addCard}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -470,6 +572,10 @@ function KanbanCard({
   onEdit,
   onMove,
   onDragStart,
+  categoryLabels,
+  kindLabels,
+  language,
+  copy,
 }: {
   todo: Todo;
   goalTitle?: string;
@@ -479,9 +585,19 @@ function KanbanCard({
   onEdit: () => void;
   onMove: (category: TodoCategory) => void;
   onDragStart: () => void;
+  categoryLabels: Record<TodoCategory, string>;
+  kindLabels: Record<TodoKind, string>;
+  language: Language;
+  copy: {
+    complete: string;
+    move: string;
+    moveCategory: string;
+    edit: string;
+    delete: string;
+  };
 }) {
   const normalized = normalizeTodo(todo);
-  const completeLabel = `Complete ${todo.title}`;
+  const completeLabel = `${copy.complete} ${todo.title}`;
 
   return (
     <article
@@ -507,10 +623,10 @@ function KanbanCard({
           <h4 className="break-words font-medium text-gray-900">{todo.title}</h4>
           <div className="mt-2 flex flex-wrap gap-1">
             <Badge variant={normalized.kind === 'ddl' ? 'destructive' : 'outline'} className="text-xs">
-              {TODO_KIND_LABELS[normalized.kind ?? 'todo']}
+              {kindLabels[normalized.kind ?? 'todo']}
             </Badge>
             <Badge variant="secondary" className="text-xs">
-              {TODO_CATEGORY_LABELS[normalized.category ?? 'general']}
+              {categoryLabels[normalized.category ?? 'general']}
             </Badge>
           </div>
         </div>
@@ -519,7 +635,7 @@ function KanbanCard({
       <div className="space-y-2 text-sm text-gray-600">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 flex-shrink-0" />
-          <span>{displayDate(normalized.date)}</span>
+          <span>{displayDate(normalized.date, language)}</span>
         </div>
         {(goalTitle || tacticTitle) && (
           <div className="flex flex-wrap gap-1">
@@ -541,20 +657,20 @@ function KanbanCard({
         <select
           value={normalized.category ?? 'general'}
           onChange={(event) => onMove(event.target.value as TodoCategory)}
-          aria-label={`Move ${todo.title} to category`}
+          aria-label={`${copy.move} ${todo.title}`}
           className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-2 text-sm sm:py-1.5 sm:text-xs"
-          title="Move category"
+          title={copy.moveCategory}
         >
           {TODO_CATEGORIES.map((category) => (
             <option key={category} value={category}>
-              {TODO_CATEGORY_LABELS[category]}
+              {categoryLabels[category]}
             </option>
           ))}
         </select>
-        <IconButton label={`Edit ${todo.title}`} onClick={onEdit}>
+        <IconButton label={`${copy.edit} ${todo.title}`} onClick={onEdit}>
           <Pencil className="h-4 w-4" />
         </IconButton>
-        <IconButton label={`Delete ${todo.title}`} onClick={onDelete}>
+        <IconButton label={`${copy.delete} ${todo.title}`} onClick={onDelete}>
           <Trash2 className="h-4 w-4" />
         </IconButton>
       </div>
@@ -568,15 +684,28 @@ function ArchivedCard({
   tacticTitle,
   onReopen,
   onDelete,
+  categoryLabels,
+  kindLabels,
+  language,
+  copy,
 }: {
   todo: Todo;
   goalTitle?: string;
   tacticTitle?: string;
   onReopen: () => void;
   onDelete: () => void;
+  categoryLabels: Record<TodoCategory, string>;
+  kindLabels: Record<TodoKind, string>;
+  language: Language;
+  copy: {
+    delete: string;
+    reopen: string;
+    completed: string;
+    recently: string;
+  };
 }) {
   const normalized = normalizeTodo(todo);
-  const reopenLabel = `Reopen ${todo.title}`;
+  const reopenLabel = `${copy.reopen} ${todo.title}`;
 
   return (
     <article className="rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -588,10 +717,10 @@ function ArchivedCard({
           </h4>
           <div className="mt-2 flex flex-wrap gap-1">
             <Badge variant="outline" className="text-xs">
-              {TODO_KIND_LABELS[normalized.kind ?? 'todo']}
+              {kindLabels[normalized.kind ?? 'todo']}
             </Badge>
             <Badge variant="secondary" className="text-xs">
-              {TODO_CATEGORY_LABELS[normalized.category ?? 'general']}
+              {categoryLabels[normalized.category ?? 'general']}
             </Badge>
             {goalTitle && (
               <Badge variant="secondary" className="text-xs">
@@ -605,7 +734,7 @@ function ArchivedCard({
             )}
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            Completed {normalized.completedAt ? displayDate(normalized.completedAt.slice(0, 10)) : 'recently'}
+            {copy.completed} {normalized.completedAt ? displayDate(normalized.completedAt.slice(0, 10), language) : copy.recently}
           </p>
         </div>
       </div>
@@ -618,9 +747,9 @@ function ArchivedCard({
           onClick={onReopen}
         >
           <RotateCcw className="mr-2 h-4 w-4" />
-          Reopen
+          {copy.reopen}
         </Button>
-        <IconButton label={`Delete ${todo.title}`} onClick={onDelete}>
+        <IconButton label={`${copy.delete} ${todo.title}`} onClick={onDelete}>
           <Trash2 className="h-4 w-4" />
         </IconButton>
       </div>
