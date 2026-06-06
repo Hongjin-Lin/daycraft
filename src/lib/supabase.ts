@@ -371,7 +371,17 @@ class SupabaseQueryBuilder {
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        resolve({ data: null, error: { message: errBody.message || errBody.msg || `Request failed: ${res.status}` } });
+        const message = errBody.message || errBody.msg || `Request failed: ${res.status}`;
+        const error = Object.assign(new Error(message), {
+          code: errBody.code,
+          details: errBody.details,
+          hint: errBody.hint,
+          status: res.status,
+        });
+        resolve({
+          data: null,
+          error,
+        });
         return;
       }
 
