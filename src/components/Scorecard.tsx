@@ -40,6 +40,7 @@ export function Scorecard() {
 
   const { weekStart, weekEnd } = getWeekDates(activeWeekNumber);
   const weekTodos = todos.filter(t => {
+    if (!t.date) return false;
     const todoDate = dateFromISO(t.date);
     return isWithinInterval(todoDate, { start: weekStart, end: weekEnd });
   });
@@ -141,6 +142,8 @@ export function Scorecard() {
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="Previous week"
+                title="Previous week"
                 onClick={() => setCurrentWeekNumber(Math.max(1, activeWeekNumber - 1))}
                 disabled={activeWeekNumber === 1}
               >
@@ -149,6 +152,8 @@ export function Scorecard() {
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="Next week"
+                title="Next week"
                 onClick={() => setCurrentWeekNumber(Math.min(totalWeeks, activeWeekNumber + 1))}
                 disabled={activeWeekNumber === totalWeeks}
               >
@@ -243,7 +248,9 @@ export function Scorecard() {
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600">{format(dateFromISO(todo.date), 'MMM d')}</div>
+                        <div className="text-xs text-gray-600">
+                          {todo.date ? format(dateFromISO(todo.date), 'MMM d') : 'Unscheduled'}
+                        </div>
                       </div>
                     </div>
                   );

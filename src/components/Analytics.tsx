@@ -37,6 +37,7 @@ export function Analytics() {
   
   // Task metrics
   const allTodos = todos;
+  const scheduledTodos = todos.filter((todo) => Boolean(todo.date)) as Array<typeof todos[number] & { date: string }>;
   const completedTodos = todos.filter(t => t.completed).length;
   const overallCompletionRate = allTodos.length > 0
     ? Math.round((completedTodos / allTodos.length) * 100)
@@ -61,7 +62,7 @@ export function Analytics() {
     // Calculate actual completion for each week
     const weekStart = addDays(activePeriod.startDate, i * 7);
     const weekEnd = addDays(weekStart, 6);
-    const weekTodos = todos.filter(t => {
+    const weekTodos = scheduledTodos.filter(t => {
       const todoDate = dateFromISO(t.date);
       return isWithinInterval(todoDate, { start: weekStart, end: weekEnd });
     });
@@ -80,14 +81,14 @@ export function Analytics() {
     { name: 'Completed (100%)', value: activePeriod.goals.filter(g => g.progress === 100).length, color: '#22c55e' },
     { name: 'On Track (65-99%)', value: activePeriod.goals.filter(g => g.progress >= 65 && g.progress < 100).length, color: '#3b82f6' },
     { name: 'At Risk (35-64%)', value: activePeriod.goals.filter(g => g.progress >= 35 && g.progress < 65).length, color: '#f59e0b' },
-    { name: 'Critical (0-34%)', value: activePeriod.goals.filter(g => g.progress < 35).length, color: '#ef4444' },
+    { name: 'Needs a plan (0-34%)', value: activePeriod.goals.filter(g => g.progress < 35).length, color: '#ef4444' },
   ].filter(item => item.value > 0);
   
   // Daily Task Heatmap Data (last 4 weeks)
   const fourWeeksAgo = addDays(today, -28);
   const heatmapDays = eachDayOfInterval({ start: fourWeeksAgo, end: today });
   const heatmapData = heatmapDays.map(day => {
-    const dayTodos = todos.filter(t => t.date === format(day, 'yyyy-MM-dd'));
+    const dayTodos = scheduledTodos.filter(t => t.date === format(day, 'yyyy-MM-dd'));
     const completed = dayTodos.filter(t => t.completed).length;
     const total = dayTodos.length;
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -103,7 +104,7 @@ export function Analytics() {
   const cumulativeData = Array.from({ length: Math.min(daysPassed + 1, totalDays) }, (_, i) => {
     const day = addDays(activePeriod.startDate, i);
     const dayStr = format(day, 'yyyy-MM-dd');
-    const todosUpToDay = todos.filter(t => t.date <= dayStr);
+    const todosUpToDay = scheduledTodos.filter(t => t.date <= dayStr);
     const completedUpToDay = todosUpToDay.filter(t => t.completed).length;
     const rate = todosUpToDay.length > 0 ? Math.round((completedUpToDay / todosUpToDay.length) * 100) : 0;
     
@@ -182,16 +183,23 @@ export function Analytics() {
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold mb-1 ${
+              periodScores.length === 0 ? 'text-gray-900' :
               averageExecutionScore >= 85 ? 'text-green-600' :
               averageExecutionScore >= 65 ? 'text-blue-600' :
               averageExecutionScore >= 50 ? 'text-yellow-600' :
               'text-red-600'
             }`}>
-              {averageExecutionScore}%
+              {periodScores.length > 0 ? `${averageExecutionScore}%` : '—'}
             </div>
             <p className="text-sm text-gray-600">{periodScores.length} weeks tracked</p>
             <Badge className="mt-3" variant={averageExecutionScore >= 85 ? 'default' : 'secondary'}>
-              {averageExecutionScore >= 85 ? 'Excellent' : averageExecutionScore >= 65 ? 'Good' : 'Needs Focus'}
+              {periodScores.length === 0
+                ? 'Start with a weekly review'
+                : averageExecutionScore >= 85
+                  ? 'Excellent'
+                  : averageExecutionScore >= 65
+                    ? 'Good'
+                    : 'Needs a tighter plan'}
             </Badge>
           </CardContent>
         </Card>
@@ -372,7 +380,7 @@ export function Analytics() {
             </div>
           )}
           
-          {averageExecutionScore < 65 && (
+          {periodScores.length > 0 && averageExecutionScore < 65 && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <h4 className="font-semibold text-red-900 mb-1">🚨 Low Execution Score</h4>
               <p className="text-sm text-red-800">

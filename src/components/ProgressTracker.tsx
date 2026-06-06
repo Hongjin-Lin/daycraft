@@ -31,6 +31,7 @@ export function ProgressTracker() {
   endOfWeek.setHours(23, 59, 59, 999);
   
   const weekTodos = todos.filter(t => {
+    if (!t.date) return false;
     const todoDate = dateFromISO(t.date);
     return isWithinInterval(todoDate, { start: startOfWeek, end: endOfWeek });
   });
