@@ -708,6 +708,8 @@ html {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
   color: #374151;
   font-size: 0.78rem;
   font-weight: 700;
@@ -715,6 +717,8 @@ html {
 
 .calendar-form input,
 .calendar-form select {
+  box-sizing: border-box;
+  width: 100%;
   min-height: 2.4rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
