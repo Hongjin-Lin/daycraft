@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   GripVertical,
+  MoreHorizontal,
   Pencil,
   Plus,
   RotateCcw,
@@ -34,6 +35,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 type TaskFormState = {
   title: string;
@@ -126,6 +135,7 @@ export function Kanban() {
         titleRequired: '任务标题不能为空。',
         deadlineRequired: '截止卡片需要填写截止日期。',
         addTo: '添加卡片到',
+        actions: '操作',
         complete: '完成',
         move: '移动',
         moveCategory: '移动类别',
@@ -164,6 +174,7 @@ export function Kanban() {
         titleRequired: 'Task title is required.',
         deadlineRequired: 'Deadline cards require a deadline date.',
         addTo: 'Add card to',
+        actions: 'Actions',
         complete: 'Complete',
         move: 'Move',
         moveCategory: 'Move category',
@@ -589,6 +600,7 @@ function KanbanCard({
   kindLabels: Record<TodoKind, string>;
   language: Language;
   copy: {
+    actions: string;
     complete: string;
     move: string;
     moveCategory: string;
@@ -598,81 +610,90 @@ function KanbanCard({
 }) {
   const normalized = normalizeTodo(todo);
   const completeLabel = `${copy.complete} ${todo.title}`;
+  const dueText = displayDate(normalized.date, language);
+  const contextText = [goalTitle, tacticTitle].filter(Boolean).join(' / ');
+  const isDeadline = normalized.kind === 'ddl';
 
   return (
     <article
       draggable
       onDragStart={onDragStart}
-      className="rounded-lg border border-gray-200 bg-gray-50 p-3 shadow-sm transition-colors hover:bg-white"
+      className="group rounded-md border border-gray-200 bg-white px-2.5 py-2 shadow-sm transition hover:border-blue-200 hover:shadow"
     >
-      <div className="mb-3 flex items-start gap-2">
+      <div className="flex items-start gap-2">
         <GripVertical
           aria-hidden="true"
-          className="mt-1 h-4 w-4 flex-shrink-0 text-gray-400"
+          className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-300"
         />
         <button
           type="button"
           onClick={onComplete}
           title={completeLabel}
           aria-label={completeLabel}
-          className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-green-600"
+          className="mt-0.5 flex-shrink-0 text-gray-400 transition-colors hover:text-green-600"
         >
-          <Circle className="h-5 w-5" />
+          <Circle className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <h4 className="break-words font-medium text-gray-900">{todo.title}</h4>
-          <div className="mt-2 flex flex-wrap gap-1">
-            <Badge variant={normalized.kind === 'ddl' ? 'destructive' : 'outline'} className="text-xs">
-              {kindLabels[normalized.kind ?? 'todo']}
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              {categoryLabels[normalized.category ?? 'general']}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 flex-shrink-0" />
-          <span>{displayDate(normalized.date, language)}</span>
-        </div>
-        {(goalTitle || tacticTitle) && (
-          <div className="flex flex-wrap gap-1">
-            {goalTitle && (
-              <Badge variant="secondary" className="text-xs">
-                {goalTitle}
+          <h4 className="break-words text-sm font-semibold leading-5 text-gray-900">
+            {todo.title}
+          </h4>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+            {isDeadline && (
+              <Badge variant="destructive" className="h-5 px-1.5 text-[0.68rem]">
+                {kindLabels.ddl}
               </Badge>
             )}
-            {tacticTitle && (
-              <Badge variant="outline" className="text-xs">
-                {tacticTitle}
-              </Badge>
+            {normalized.date && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">{dueText}</span>
+              </span>
+            )}
+            {contextText && (
+              <span className="min-w-0 truncate text-gray-400">
+                {contextText}
+              </span>
             )}
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
-        <select
-          value={normalized.category ?? 'general'}
-          onChange={(event) => onMove(event.target.value as TodoCategory)}
-          aria-label={`${copy.move} ${todo.title}`}
-          className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-2 text-sm sm:py-1.5 sm:text-xs"
-          title={copy.moveCategory}
-        >
-          {TODO_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {categoryLabels[category]}
-            </option>
-          ))}
-        </select>
-        <IconButton label={`${copy.edit} ${todo.title}`} onClick={onEdit}>
-          <Pencil className="h-4 w-4" />
-        </IconButton>
-        <IconButton label={`${copy.delete} ${todo.title}`} onClick={onDelete}>
-          <Trash2 className="h-4 w-4" />
-        </IconButton>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${copy.actions} ${todo.title}`}
+              title={`${copy.actions} ${todo.title}`}
+              className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuLabel>{copy.moveCategory}</DropdownMenuLabel>
+            {TODO_CATEGORIES.map((category) => (
+              <DropdownMenuItem
+                key={category}
+                onClick={() => onMove(category)}
+              >
+                <CheckCircle2
+                  aria-hidden="true"
+                  className={`h-4 w-4 ${normalized.category === category ? 'text-blue-600' : 'opacity-0'}`}
+                />
+                {categoryLabels[category]}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="h-4 w-4" />
+              {copy.edit}
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 className="h-4 w-4" />
+              {copy.delete}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </article>
   );
