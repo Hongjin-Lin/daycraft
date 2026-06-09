@@ -645,8 +645,8 @@ function KanbanCard({
               </Badge>
             )}
             {normalized.date && (
-              <span className="inline-flex min-w-0 items-center gap-1">
-                <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="inline-flex min-w-0 items-center gap-0.5">
+                <Calendar className="h-3 w-3 flex-shrink-0 text-gray-400" />
                 <span className="truncate">{dueText}</span>
               </span>
             )}
